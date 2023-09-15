@@ -1,6 +1,6 @@
 struct Bond
     type::AbstractString
-    coupling::AbstractString
+    coupling::Union{AbstractString, Number}
     sites::Vector{Int64}
 end
 

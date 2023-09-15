@@ -1,4 +1,3 @@
-using PyPlot
 using Printf
 
 color_cycle = ["tab:blue", "tab:orange", "tab:green", "tab:red", "tab:purple",
