@@ -2,8 +2,8 @@ module Latlib
 
 using LinearAlgebra
 
-include("lattice.jl")
-export Lattice, dimension, coordinates
+include("lattice/lattice.jl")
+export Lattice, dimension, natoms
 
 include("metric.jl")
 export distance, neighbors, periodicity
