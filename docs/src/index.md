@@ -1,0 +1,5 @@
+# Latlib Documentation
+
+```@docs
+Lattice
+```

@@ -1,6 +1,22 @@
-using Spglib
 using IterTools
 
+
+
+@doc raw"""
+    Lattice
+
+A lattice is defined by its Bravais lattice, 
+basis coordinates and optionally the type of 
+the basis lattice sites.
+
+The Bravais lattice is defined at a set of points
+
+``\mathbf{R} = \sum_{i=1}^D n_i \mathbf{a}_i``
+
+where ``D`` denotes the dimension of the lattice, 
+``n_i`` are integers and ``\mathbf{a}_i`` are the
+Bravais vectors. 
+"""
 struct Lattice
     lattice::Matrix{Real}
     basis::Matrix{Real}
