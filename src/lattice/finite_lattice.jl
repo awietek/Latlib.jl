@@ -14,21 +14,46 @@ multiples of the lattice vectors. The cartesian boundary box vectors
 # Arguments
 - `lattice::Lattice`: instance of the underlying lattice geometry.
 - `boundary::AbstractMatrix`: ``D \times D`` integer matrix whose columns define the boundary box
--
+- `periodicity::Vector{Bool}`: vector defining which boundary direction is periodic
 """
 struct FiniteLattice
     lattice::Lattice
     boundary::Matrix{Int64}
+    periodicity::Vector{Bool}
 
-    function FiniteLattice(lattice::Lattice, boundary::AbstractMatrix)
+    function FiniteLattice(lattice::Lattice, boundary::Matrix{Int64}, periodicity::Vector{Bool})
         dim_vectors = size(lattice.vectors)
         dim_boundary = size(boundary)
         if dim_vectors != dim_boundary
             error(@sprintf "Incompatible dimension lattice vectors %s and boundary matrix %s" dim_vectors dim_boundary)
         end
-        new(lattice, boundary)
+
+        dim = dimension(lattice)
+        
+        if length(periodicity) != dim
+            error("Periodicity vector is not of same length as dimension of lattice")
+        end
+        
+        new(lattice, boundary, periodicity)
     end
 end
+
+@doc raw"""
+    FiniteLattice(lattice::Lattice, boundary::AbstractMatrix; periodic=true)
+
+Create a finite lattice given an underlying lattice, its boundary, and optionally 
+whether or not fully periodic boundary conditions need to be applied
+
+# Arguments
+- `lattice::Lattice`: instance of the underlying lattice geometry.
+- `boundary::AbstractMatrix`: ``D \times D`` integer matrix whose columns define the boundary box
+
+# Keyword arguments
+- `periodic::Bool=true`: flag to set if periodic boundary conditions are used
+"""
+FiniteLattice(lattice::Lattice, boundary::AbstractMatrix; periodic::Bool=true) =    
+    FiniteLattice(lattice, boundary, fill(periodic, dimension(lattice)))
+
 
 """
     dimension(flattice::FiniteLattice)
@@ -58,6 +83,7 @@ function Base.show(io::IO, flattice::FiniteLattice)
     for i in 1:dim
         println(io, @sprintf "b%d = %s" i flattice.boundary[:,i])
     end
+    println(io, @sprintf "periodicity = %s" flattice.periodicity)
 end
 
 
@@ -115,4 +141,65 @@ function coordinates(flattice::FiniteLattice)
     # sort the coordinates w.r.t. given ordering
     sort!(all_coords)
     return hcat(all_coords...)
+end
+
+"""
+    boundary_vectors(flattice::FiniteLattice)
+
+Computes the vectors of the boundary box in Cartesian coordinates
+"""
+function boundary_vectors(flattice::FiniteLattice)
+    return flattice.lattice.vectors * flattice.boundary
+end
+
+"""
+    periodicity_vectors(flattice::FiniteLattice)
+
+Computes the vectors of the periodic directions in Cartesian coordinates
+"""
+function periodicity_vectors(flattice::FiniteLattice)
+    return boundary_vectors(flattice)[:, flattice.periodicity]
+end
+
+
+"""
+    neighbors(flattice::FiniteLattice; num_distance::Integer=1)
+
+Computes which pairs of coordinates are neighbors
+
+# Arguments
+- `flattice::FiniteLattice`: finite lattice 
+
+# Keyword arguments
+- `num_distance::Integer=1`: at which distance neighbors are considered, 1 -> nearest neighbor, 2 -> second nearest neighbor, etc.
+"""
+function neighbors(flattice::FiniteLattice; num_distance::Integer=1)
+    return neighbors(coordinates(flattice);
+                     num_distance=num_distance,
+                     periodicity_vectors=periodicity_vectors(flattice))
+end
+
+
+"""
+    distance(x1::AbstractVector, x2::AbstractVector, flattice::FiniteLattice)
+
+Computes the distance between two points given the periodicity of the
+finite lattice.
+"""
+function distance(x1::AbstractVector, x2::AbstractVector, flattice::FiniteLattice)
+    return distance(x1, x2; periodicity_vectors=periodicity_vectors(flattice))
+end
+
+function distance_vector(x1::AbstractVector, x2::AbstractVector, flattice::FiniteLattice)
+    return distance_vector(x1, x2; periodicity_vectors=periodicity_vectors(flattice))
+end
+
+"""
+    distances(flattice::FiniteLattice)
+
+Computes which unique values of distances are present on the lattice
+"""
+function distances(flattice::FiniteLattice)
+    return distances(coordinates(flattice);
+                     periodicity_vectors=periodicity_vectors(flattice))
 end

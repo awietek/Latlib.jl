@@ -4,7 +4,7 @@ authors = ["Alex Wietek <awietek@pks.mpg.de> and contributors"]
 version = "1.0.0-DEV"
 
 [deps]
-AlgebraicNumbers = "e86d093a-a386-599e-b7c7-df0420c8bcba"
+GLMakie = "e9467ef8-e4e7-5192-8a1a-b1aee30e663a"
 IterTools = "c8e1da08-722c-5040-9ed9-7db0dc04731e"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
