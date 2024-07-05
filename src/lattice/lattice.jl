@@ -1,9 +1,9 @@
-using IterTools
+using Printf
 
 @doc raw"""
     Lattice
 
-A lattice is defined by its Bravais lattice, 
+A lattice is defined by its Bravais lattice vectors, 
 atomic positions and optionally the type of 
 the atomic lattice sites.
 
@@ -42,72 +42,85 @@ integer number. This can be useful if there are different
 atomic species in a unit cell.
 
 # Arguments
-- `lattice::Matrix{Real}`: ``D \times D`` matrix whose columns are the Bravais lattice vectors.
-- `position::Matrix{Real}`: ``P \times D`` matrix whose rows are the atomic positions.
-- `types::Vector{Integer}`: ``P`` dimensional integer vector defining the types of the atoms.
+- `vectors::AbstractMatrix`: ``D \times D`` matrix whose columns are the Bravais lattice vectors.
+- `positions::AbstractMatrix`: ``D \times P`` matrix whose columns are the atomic positions.
+- `types::AbstractVector`: ``P`` dimensional integer vector defining the types of the atoms.
 """
 struct Lattice
-    lattice::Matrix{Real}
-    position::Matrix{Real}
-    types::Vector{Integer}
+    vectors::Matrix{Float64}
+    positions::Matrix{Float64}
+    types::Vector{Int64}
 
-    function Lattice(lattice, position, types)
-        dim = size(lattice)[1]
-        if dim != size(lattice)[2]
-            error("Invalid Bravais lattice specified. \"lattice\" must be a square matrix")
+    function Lattice(vectors::AbstractMatrix, positions::AbstractMatrix, types::AbstractVector)
+        dim = size(vectors)[1]
+        if dim != size(vectors)[2]
+            error("Invalid Bravais vectors specified. \"vectors\" must be a square matrix")
         end
 
-        if dim != size(position)[2]
-            error("Incompatible dimension of lattice and atomic positions")
+        if dim != size(positions)[1]
+            error(@sprintf "Incompatible dimension of Bravais \"vectors\" %s and atomic \"positions\" %s" size(vectors) size(positions))
         end
 
-        nbasis = size(position)[1]
-        if size(types) == 0
+        nbasis = size(positions)[2]
+        if length(types) == 0
             types = ones(Integer, nbasis)
         end
 
-        if size(types) != nbasis
+        if length(types) != nbasis
             error("Number of \"types\" must be same as number of \"positions\"")
         end
-        new(lattice, position, types)
+        new(vectors, positions, types)
     end
 end
 
 @doc raw""" 
-    Lattice(lattice::Matrix{Real}, position::Matrix{Real})
+    Lattice(vectors::AbstractMatrix, positions::AbstractMatrix)
 
 Create a lattice from Bravais lattice vectors and atomic positions.
 
 The types of the atomic positions are automatically set to \"1\".
 
 # Arguments
-- `lattice::Matrix{Real}`: ``D \times D`` matrix whose columns are the Bravais lattice vectors.
-- `position::Matrix{Real}`: ``P \times D`` matrix whose rows are the atomic positions
+- `vectors::AbstractMatrix`: ``D \times D`` matrix whose columns are the Bravais lattice vectors.
+- `positions::AbstractMatrix`: ``P \times D`` matrix whose rows are the atomic positions
 """
-Lattice(lattice::Matrix{Real}, position::Matrix{Real}) = Lattice(lattice, position, Integer[])
+Lattice(vectors::AbstractMatrix, positions::AbstractMatrix) = Lattice(vectors, positions, Integer[])
 
 @doc raw""" 
-    Lattice(lattice::Matrix{Real})
+    Lattice(vectors::AbstractMatrix)
 
 Create a Bravais lattice from the Bravais lattice vectors. 
 
 The (single) atomic position is set to be zero and of type \"1\".
 
 # Argument
-- `lattice::Matrix{Real}`: ``D \times D`` matrix whose columns are the Bravais lattice vectors.
+- `vectors::AbstractMatrix`: ``D \times D`` matrix whose columns are the Bravais lattice vectors.
 """
-Lattice(lattice::Matrix{Real}) = Lattice(lattice, zeros(Real, 1, size(lattice)[1]))
+Lattice(vectors::AbstractMatrix) = Lattice(vectors, zeros(Real, 1, size(vectors)[1]))
 
 """
     dimension(lattice::Lattice)
 
 Obtain the dimension of the lattice.
 """
-dimension(lattice::Lattice) = size(lattice.lattice)[1]
+dimension(lattice::Lattice) = size(lattice.vectors)[1]
 
 """
     natoms(lattice::Lattice)
 
 Obtain the number of atomic positions
 """
-natoms(lattice::Lattice) = size(lattice.position)[1]
+natoms(lattice::Lattice) = size(lattice.positions)[2]
+
+
+function Base.show(io::IO, lattice::Lattice)
+    dim = dimension(lattice)
+    println(io, "Lattice")
+    println(io, @sprintf "D = %d" dim)
+    for i in 1:dim
+        println(io, @sprintf "a%d = %s" i lattice.vectors[:,i])
+    end
+    for i in 1:natoms(lattice)
+        println(io, @sprintf "x%d = %s (type: %d)" i lattice.positions[:,i] lattice.types[i])
+    end
+end

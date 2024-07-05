@@ -1,9 +1,14 @@
 module Latlib
-
 using LinearAlgebra
 
 include("lattice/lattice.jl")
 export Lattice, dimension, natoms
+
+include("lattice/predefined_lattices.jl")
+export square, kagome
+
+include("lattice/finite_lattice.jl")
+export FiniteLattice, bravais_coordinates, coordinates
 
 include("metric.jl")
 export distance, neighbors, periodicity
