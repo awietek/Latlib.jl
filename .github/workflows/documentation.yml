@@ -19,7 +19,7 @@ jobs:
       - uses: julia-actions/setup-julia@v2
         with:
           version: '1.8'
-          prefix: xvfb-run -s '-screen 0 1024x768x24'	
+          prefix: xvfb-run -s '-screen 0 1024x768x24'
       - uses: julia-actions/cache@v1
       - name: Install dependencies
         run: julia --project=docs/ -e 'using Pkg; Pkg.develop(PackageSpec(path=pwd())); Pkg.instantiate()'
@@ -28,6 +28,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # If authenticating with GitHub Actions token
           DOCUMENTER_KEY: ${{ secrets.DOCUMENTER_KEY }} # If authenticating with SSH deploy key
         run: julia --project=docs/ docs/make.jl
-	with:
+        with:
           version: '1.8'
-          prefix: xvfb-run -s '-screen 0 1024x768x24'	
+          prefix: xvfb-run -s '-screen 0 1024x768x24'
