@@ -34,5 +34,4 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # If authenticating with GitHub Actions token
           DOCUMENTER_KEY: ${{ secrets.DOCUMENTER_KEY }} # If authenticating with SSH deploy key
         run: |
-          xvfb-run -s '-screen 0 1024x768x24'
-          julia --project=docs/ docs/make.jl
+          xvfb-run -s '-screen 0 1024x768x24' julia --project=docs/ docs/make.jl
