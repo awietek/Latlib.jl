@@ -2,7 +2,7 @@ module Latlib
 using LinearAlgebra
 
 include("lattice/lattice.jl")
-export Lattice, dimension, natoms
+export Lattice, dimension, natoms, inlattice, vector_position
 
 include("lattice/predefined_lattices.jl")
 export square, kagome

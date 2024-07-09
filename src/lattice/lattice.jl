@@ -112,6 +112,51 @@ Obtain the number of atomic positions
 """
 natoms(lattice::Lattice) = size(lattice.positions)[2]
 
+"""
+    inlattice(lattice::Lattice, point::AbstractVector)
+
+Returns whether a given point is part of the lattice
+"""
+function inlattice(lattice::Lattice, point::AbstractVector)
+    r = lattice.vectors \ point
+    r = r - floor.(Int, round.(r, digits=8))
+    point0 = lattice.vectors * r
+    positions_cartesian = lattice.vectors * lattice.positions
+    for a in eachcol(positions_cartesian)
+        if isapprox(point0, a, rtol=1e-8, atol=1e-8)
+            return true
+        end
+    end
+    return false
+end
+
+"""
+    vector_position(lattice::Lattice, point::AbstractVector)
+
+Returns which multiple of the spanning vectors and which position of
+the lattice a point is represented by, if it is part of the lattice
+"""
+function vector_position(lattice::Lattice, point::AbstractVector)
+    r = lattice.vectors \ point
+
+    vector = floor.(Int, round.(r, digits=8))
+    
+    r = r - vector
+    point0 = lattice.vectors * r
+    positions_cartesian = lattice.vectors *lattice.positions
+
+    for (idx, a) in enumerate(eachcol(positions_cartesian))
+        if isapprox(point0, a, rtol=1e-8, atol=1e-8)
+            return vector, idx
+        end
+    end
+
+    for (idx, a) in enumerate(eachcol(positions_cartesian))
+        @show point0, a
+    end
+    exit()
+    return [], 0
+end
 
 function Base.show(io::IO, lattice::Lattice)
     dim = dimension(lattice)

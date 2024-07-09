@@ -15,13 +15,15 @@ multiples of the lattice vectors. The cartesian boundary box vectors
 - `lattice::Lattice`: instance of the underlying lattice geometry.
 - `boundary::AbstractMatrix`: ``D \times D`` integer matrix whose columns define the boundary box
 - `periodicity::Vector{Bool}`: vector defining which boundary direction is periodic
+- `order`: functions setting 
 """
 struct FiniteLattice
     lattice::Lattice
     boundary::Matrix{Int64}
     periodicity::Vector{Bool}
+    order
 
-    function FiniteLattice(lattice::Lattice, boundary::Matrix{Int64}, periodicity::Vector{Bool})
+    function FiniteLattice(lattice::Lattice, boundary::Matrix{Int64}, periodicity::Vector{Bool}, order=nothing)
         dim_vectors = size(lattice.vectors)
         dim_boundary = size(boundary)
         if dim_vectors != dim_boundary
@@ -33,8 +35,11 @@ struct FiniteLattice
         if length(periodicity) != dim
             error("Periodicity vector is not of same length as dimension of lattice")
         end
-        
-        new(lattice, boundary, periodicity)
+        if order === nothing
+            new(lattice, boundary, periodicity, isless)
+        else
+            new(lattice, boundary, periodicity, order)
+        end
     end
 end
 
@@ -115,7 +120,7 @@ function bravais_coordinates(flattice::FiniteLattice)
             push!(bravais_coords, bravais_coord)
         end
     end
-    sort!(bravais_coords)
+    sort!(bravais_coords, lt=flattice.order)
     return hcat(bravais_coords...)
 end
 
@@ -139,7 +144,7 @@ function coordinates(flattice::FiniteLattice)
     end
 
     # sort the coordinates w.r.t. given ordering
-    sort!(all_coords)
+    sort!(all_coords, lt=flattice.order)
     return hcat(all_coords...)
 end
 
@@ -203,3 +208,4 @@ function distances(flattice::FiniteLattice)
     return distances(coordinates(flattice);
                      periodicity_vectors=periodicity_vectors(flattice))
 end
+
