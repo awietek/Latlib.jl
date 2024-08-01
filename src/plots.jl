@@ -2,11 +2,17 @@ using Printf
 using GLMakie
 
 function plot2d(flattice::FiniteLattice;
+                ax=nothing,
                 annotate_sites::Bool=true,
                 show_boundary::Bool=true,
                 show_neighbors::Bool=true)
-    f = Figure()
-    ax = Axis(f[1,1]) 
+    if ax == nothing
+        f = Figure()
+        ax = Axis(f[1,1])
+        show = true
+    else
+        show = false
+    end
     
     coords = coordinates(flattice)
     n_coords = size(coords)[2]
@@ -34,7 +40,9 @@ function plot2d(flattice::FiniteLattice;
                 d = distance_vector(p2, p1, flattice)
                 p1 = p2 + d
                 scatter!(ax, [p1[1]], [p1[2]], color=:grey, markersize=12)
-                text!(ax, [p1[1]], [p1[2]], text = string.([n[1]]), color=:grey)
+                if annotate_sites
+                    text!(ax, [p1[1]], [p1[2]], text = string.([n[1]]), color=:grey)
+                end
             else
                 linestyle = :solid
             end
@@ -54,7 +62,9 @@ function plot2d(flattice::FiniteLattice;
         text!(ax, coords[1,:], coords[2,:], text = string.(1:n_coords))
     end
 
-    display(f)
+    if show
+        display(f)
+    end
 end
 
 """
@@ -71,12 +81,13 @@ Plots a finite lattice.
 - `show_neighbors::Bool=true`: flag to show the nearest neighbors of the lattice
 """
 function plot(flattice::FiniteLattice;
+              ax=nothing,
               annotate_sites::Bool=true,
               show_boundary::Bool=true,
               show_neighbors::Bool=true)
     dim = dimension(flattice)
     if dim == 2
-        plot2d(flattice; annotate_sites, show_boundary, show_neighbors)
+        plot2d(flattice; ax, annotate_sites, show_boundary, show_neighbors)
     else
         error(@sprintf "Plotting of FiniteLattice not implemented for dimension %d" dim)
     end
