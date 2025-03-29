@@ -1,35 +1,33 @@
 using Latlib
 using Printf
 using GLMakie
-using TOML
-
 
 let 
     ### Lattice Dimensions    
-    L = 12
+    L = 6
     W = 4
     
     #### Matrix with unit vectors in each collum;
-    BravaisVec = [1 0.5; 0 sqrt(3)/2]
-    SimTorus = [L 0; 0 W]
-    Basis = [0 0]' # 1 Atom per unit cell!
-    
+    BravaisVec = [1 0; 0 1]
+    SimTorus =   [L÷2 0; 0 W÷2]
+
+    Basis = [0 0; 0.0 0.5; 0.5 0.0; 0.5 0.5]' # 1 Atom per unit cell!
+
     ## Infite Bravais Lattice:
     InFlattice = Latlib.Lattice(BravaisVec, Basis)
     
-
     ## Finite Bravais Lattice inside of Simulation Torus:
     FiniteLat = Latlib.FiniteLattice(InFlattice,SimTorus,[false, true])
 
-
     H = OpSum()
-
-    H += neighbor_bonds("HB", "Jd", FiniteLat; num_distance = 1)
-
+    
+    H += neighbor_bonds("HB", "J", FiniteLat; num_distance = 1)
+    H += lattice_bonds("HB", "Jd", FiniteLat, [1, 0, 0], [4, 0, 0])
+    H += lattice_bonds("HB", "Jd", FiniteLat, [3, 0, 1], [2, 1, 0])
+    
     GLMakie.activate!(inline=true)
     ## Print Lattice
     Latlib.plot(FiniteLat)
 
-    write_OpSum_to_toml!(H,"triangular.toml")
- 
+    write_OpSum_to_toml!(H,"shastry_sutherland.toml",index_zero=false)
 end

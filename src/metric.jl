@@ -128,7 +128,6 @@ function neighbors(points::AbstractMatrix; num_distance::Integer=1, periodicity_
         error("num_distance larger than available distances")
     end
     
-    println(dists)
     distance = dists[num_distance+1]
 
     if periodicity_vectors === nothing
