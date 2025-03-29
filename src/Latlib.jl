@@ -14,7 +14,7 @@ include("metric.jl")
 export distance, distance_matrix, distances, neighbors, periodicity
 
 include("opsum.jl")
-export Op, OpSum, nearest_neighbor_bonds, lattice_bonds
+export Op, OpSum, unique_ops!, neighbor_bonds
 
 include("plots.jl")
 export plot
