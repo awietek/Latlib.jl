@@ -24,12 +24,12 @@ let
 
     H = OpSum()
 
-    H += neighbor_bonds("HB", "Jd", FiniteLat; num_distance = 1)
+    H += neighbor_bonds("HB", "J1", FiniteLat; num_distance = 1)
 
     GLMakie.activate!(inline=true)
     ## Print Lattice
-    Latlib.plot(FiniteLat)
+    Latlib.plotOpSum(H,FiniteLat)
 
     write_OpSum_to_toml!(H,"triangular.toml",index_zero=false)
- 
+
 end

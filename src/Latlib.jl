@@ -17,6 +17,6 @@ include("opsum.jl")
 export Op, OpSum, unique_ops!, neighbor_bonds, lattice_bonds, write_OpSum_to_toml!
 
 include("plots.jl")
-export plot
+export plot,plotOpSum
 
 end

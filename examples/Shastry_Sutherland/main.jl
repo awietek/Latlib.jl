@@ -1,7 +1,4 @@
 using Latlib
-using Printf
-using GLMakie
-
 let 
     ### Lattice Dimensions    
     L = 6
@@ -25,9 +22,11 @@ let
     H += lattice_bonds("HB", "Jd", FiniteLat, [1, 0, 0], [4, 0, 0])
     H += lattice_bonds("HB", "Jd", FiniteLat, [3, 0, 1], [2, 1, 0])
     
-    GLMakie.activate!(inline=true)
+    Latlib.GLMakie.activate!(inline=true)
     ## Print Lattice
     Latlib.plot(FiniteLat)
+
+    plotOpSum(H,FiniteLat)
 
     write_OpSum_to_toml!(H,"shastry_sutherland.toml",index_zero=false)
 end
