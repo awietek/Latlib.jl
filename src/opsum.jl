@@ -172,23 +172,6 @@ function lattice_bonds(type::AbstractString, coupling::AbstractString, Flattice:
 end
 
 
-function write_opsum_to_toml(opsum::OpSum, filename::String; index_cpp::Bool=false)
-    toml_data = Dict()
-
-    if index_cpp == true
-
-    end
-
-    for (i, op) in enumerate(opsum.ops)
-        toml_data["interaction_$i"] = Dict(
-            "type" => op.type,
-            "label" => op.label,
-            "vector" => op.vector
-        )
-    end
-    TOML.print(filename, toml_data)
-end
-
 function write_OpSum_to_toml!(opsum::OpSum, filename::String; index_zero::Bool=false)
 
     open(filename, "w") do io

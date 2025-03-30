@@ -30,6 +30,6 @@ let
     ## Print Lattice
     Latlib.plot(FiniteLat)
 
-    write_OpSum_to_toml!(H,"triangular.toml")
+    write_OpSum_to_toml!(H,"triangular.toml",index_zero=false)
  
 end
