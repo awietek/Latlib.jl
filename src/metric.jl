@@ -3,6 +3,7 @@ using LinearAlgebra
 abstract type Metric end
 
 struct EuclideanMetric <: Metric end
+
 struct PeriodicMetric{T<:AbstractArray} <: Metric
     periodicity_vectors::T
 end
@@ -117,6 +118,7 @@ Computes which pairs of the input points are neighbors
 - `periodicity_vectors=nothing`: if defined, the vectors that define a periodic direction
 """
 function neighbors(points::AbstractMatrix; num_distance::Integer=1, periodicity_vectors=nothing)
+
     N = size(points)[2]
     dists = distances(points; periodicity_vectors=periodicity_vectors)
 
@@ -125,7 +127,7 @@ function neighbors(points::AbstractMatrix; num_distance::Integer=1, periodicity_
     elseif num_distance > length(dists) - 1
         error("num_distance larger than available distances")
     end
-        
+    
     distance = dists[num_distance+1]
 
     if periodicity_vectors === nothing
@@ -133,6 +135,7 @@ function neighbors(points::AbstractMatrix; num_distance::Integer=1, periodicity_
     else
         metric = PeriodicMetric(periodicity_vectors)
     end
+
     dist(x, y) = metric(x, y)
     
     nbors = Vector{Int64}[]

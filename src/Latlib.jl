@@ -13,10 +13,10 @@ export FiniteLattice, bravais_coordinates, coordinates, boundary_vectors, period
 include("metric.jl")
 export distance, distance_matrix, distances, neighbors, periodicity
 
-include("bonds.jl")
-export Bond, nearest_neighbor_bonds, lattice_bonds
+include("opsum.jl")
+export Op, OpSum, unique_ops!, neighbor_bonds, lattice_bonds, write_opsum_to_toml!
 
 include("plots.jl")
-export plot
+export plot, plot_opsum
 
 end
