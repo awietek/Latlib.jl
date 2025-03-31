@@ -56,16 +56,16 @@ function plot2d(flattice::FiniteLattice, ax::Makie.Axis;
 end
 
 
-function plotops(H::OpSum, flattice::FiniteLattice, ax::Makie.Axis;)
+function plot_ops(opsum::OpSum, flattice::FiniteLattice, ax::Makie.Axis;)
     # Assign unique numbers starting from 2 to each bond type
-    bond_types = unique(op.coupling for op in H.ops)
+    bond_types = unique(op.coupling for op in opsum.ops)
     color_map = Dict(bond_type => i + 2 for (i, bond_type) in enumerate(bond_types))
 
     # Get coordinates of lattice points
     coords = coordinates(flattice)
 
     plotted_bonds = []
-    for op in H.ops
+    for op in opsum.ops
         # Get the two sites connected by the bond
         site1, site2 = op.sites
         p1 = coords[:, site1]
@@ -99,7 +99,7 @@ function plotops(H::OpSum, flattice::FiniteLattice, ax::Makie.Axis;)
 end
 
 
-"""
+@doc raw"""
     plot
 
 Plots a finite lattice.
@@ -138,11 +138,27 @@ function plot(flattice::FiniteLattice;
 end
 
 
-function plotOpSum(H::OpSum, flattice::FiniteLattice;
+
+@doc raw"""
+    plot_opsum
+
+Plots a finite lattice with the interaction bonds contained in the OpSum. The interaction with differnt couplings are represented in distintic colors.
+
+# Arguments
+- `opsum::OpSum`: finite lattice to plot
+- `flattice::FiniteLattice`: finite lattice to plot
+
+# Keyword arguments
+- `annotate_sites::Bool=true`: flag to label the lattice sites with a number
+- `show_boundary::Bool=true`: flag to show the boundary box of the lattice
+- `show_neighbors::Bool=true`: flag to show the nearest neighbors of the lattice
+"""
+function plot_opsum(opsum::OpSum, flattice::FiniteLattice;
     ax=nothing,
     annotate_sites::Bool=true,
     show_boundary::Bool=true,
     show_neighbors::Bool=true)
+
     dim = dimension(flattice)
 
     if dim == 2
@@ -155,7 +171,7 @@ function plotOpSum(H::OpSum, flattice::FiniteLattice;
         end
 
         plot2d(flattice, ax; annotate_sites, show_boundary, show_neighbors)
-        plotops(H, flattice, ax)
+        plot_ops(opsum, flattice, ax)
 
         if show == true
             display(f)

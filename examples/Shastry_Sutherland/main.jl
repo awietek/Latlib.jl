@@ -24,9 +24,8 @@ let
     
     Latlib.GLMakie.activate!(inline=true)
     ## Print Lattice
-    Latlib.plot(FiniteLat)
 
-    plotOpSum(H,FiniteLat)
+    plot_opsum(H,FiniteLat)
 
-    write_OpSum_to_toml!(H,"shastry_sutherland.toml",index_zero=false)
+    write_opsum_to_toml!(H,"shastry_sutherland.toml",index_zero=false)
 end

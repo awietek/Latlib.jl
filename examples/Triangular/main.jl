@@ -1,8 +1,4 @@
 using Latlib
-using Printf
-using GLMakie
-using TOML
-
 
 let 
     ### Lattice Dimensions    
@@ -26,10 +22,10 @@ let
 
     H += neighbor_bonds("HB", "J1", FiniteLat; num_distance = 1)
 
-    GLMakie.activate!(inline=true)
+    Latlib.GLMakie.activate!(inline=true)
     ## Print Lattice
-    Latlib.plotOpSum(H,FiniteLat)
+    plot_opsum(H,FiniteLat)
 
-    write_OpSum_to_toml!(H,"triangular.toml",index_zero=false)
+    write_opsum_to_toml!(H,"triangular.toml",index_zero=false)
 
 end

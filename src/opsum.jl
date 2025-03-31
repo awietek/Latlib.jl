@@ -10,7 +10,6 @@ Defines the information regarding an operator ``\mathbf{O}``.
 - `coupling::Union{AbstractString,Number}`: String or number specifying the coupling constant;
 - `sites::Vector{Int64}`: Vector specifing the sites in each the operator acts on the Hilbert Space;
 """
-
 struct Op
     type::AbstractString
     coupling::Union{AbstractString,Number}
@@ -49,24 +48,25 @@ function Base.isless(b1::Op, b2::Op)
 end
 
 
-"""
+@doc raw"""
     OpSum
 
 Constructor to collect all operators that appear in the Hamiltonian.
 
 One can use the `+=` operator to add operators to the OpSum:
-```julia
-    H = OpSum()
-    H += Op("HB", "Jd", [1,2])
-    H += Op("HB", "Jd", [2,3])
-    H += Op("HB", "Jd", [3,4])
-"""
 
+```julia
+    opsum = OpSum()
+    opsum += Op("HB", "Jd", [1,2])
+    opsum += Op("HB", "Jd", [2,3])
+    opsum += Op("HB", "Jd", [3,4])
+```
+"""
 mutable struct OpSum
     ops::Vector{Op}
 end
 
-#Initialize OpSum
+
 function OpSum()
     OpSum(Op[])
 end
@@ -87,8 +87,8 @@ function unique_ops!(opsum::OpSum)
 end
 
 
-"""
-Returns the OpSum() for corresponding to a two-body interaction acting on the neighbour sites.
+@doc raw"""
+Returns the OpSum() for corresponding to a two-body operator acting between two neighboring sites.
 
 # Arguments
 - `type::AbstractString`: String specifing the type of operator: "HB", "Cup", etc ...
@@ -96,8 +96,6 @@ Returns the OpSum() for corresponding to a two-body interaction acting on the ne
 - `lattice::FiniteLattice`: The lattice on which the operator acts;
 - `num_distance::Integer=1`: at which distance neighbors are considered, 1 -> nearest neighbor, 2 -> second nearest neighbor, etc.
 """
-
-
 function neighbor_bonds(type::AbstractString, coupling::AbstractString,
     lattice::FiniteLattice; num_distance::Integer=1)
     nbors = neighbors(lattice; num_distance)
@@ -111,7 +109,23 @@ function neighbor_bonds(type::AbstractString, coupling::AbstractString,
     return OpSumngb
 end
 
+@doc raw"""
+Returns the OpSum() for the corresponding two-body operator acting on the sites specified by the vectors b1 and b2.
 
+    The vectors b1 and b2 are given in the following way:
+    - b_[1] = index of the atom in the unit cell (using the same order as given to the lattice instance)
+    - b_[2] = Coordinate of the unit cell along the first Bravais vector
+    - b_[3] = Coordinate of the unit cell along the second Bravais vector
+    - b_[4] = Coordinate of the unit cell along the third Bravais vector
+    - ...
+
+# Arguments
+- `type::AbstractString`: String specifing the type of operator: "HB", "Cup", etc ...
+- `coupling::AbstractString`: String or number specifying the coupling constant;
+- `lattice::FiniteLattice`: The lattice on which the operator acts;
+- `b1::Vector{<:Integer},`: Vector of integers specifying the first site;
+- `b2::Vector{<:Integer},`: Vector of integers specifying the second site;
+"""
 function lattice_bonds(type::AbstractString, coupling::AbstractString, Flattice::FiniteLattice, b1::Vector{<:Integer}, b2::Vector{<:Integer})
 
     bravais_coords = bravais_coordinates(Flattice)
@@ -174,7 +188,25 @@ function lattice_bonds(type::AbstractString, coupling::AbstractString, Flattice:
 end
 
 
-function write_OpSum_to_toml!(opsum::OpSum, filename::String; index_zero::Bool=false)
+@doc raw"""
+Writes into a TOML file all the operators in the OpSum.
+    The file is written in the following format:
+
+```TOML
+    Interactions = [
+        ["HB", "J1", [1, 2]],
+        ["HB", "J2", [2, 3]],
+        ...
+    ]
+```
+            
+# Arguments
+- `opsum::OpSum`: OpSum object containing the operators;
+- `filename::String`: Name of the file to write to;
+# Keyword arguments
+- `index_zero::Bool=false`: If true, the indices of the sites are written starting from 0 instead of 1;
+"""
+function write_opsum_to_toml!(opsum::OpSum, filename::String; index_zero::Bool=false)
 
     open(filename, "w") do io
         println(io, "Interactions = [")
