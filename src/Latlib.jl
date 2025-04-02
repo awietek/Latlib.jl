@@ -4,6 +4,9 @@ using LinearAlgebra
 include("lattice/lattice.jl")
 export Lattice, dimension, natoms, inlattice, vector_position
 
+include("lattice/orders.jl")
+export order_xfirst
+
 include("lattice/predefined_lattices.jl")
 export square, kagome
 

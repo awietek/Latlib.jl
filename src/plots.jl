@@ -95,7 +95,6 @@ function plot_ops(opsum::OpSum, flattice::FiniteLattice, ax::Makie.Axis;)
         #text!(ax, midpoint[1], midpoint[2]*1.1, text = "$(op.coupling)", align = (:center, :center), fontsize = 12,color = bond_color, colormap=:tab10, colorrange=(1, 10))
     end
     axislegend(ax)
-
 end
 
 
