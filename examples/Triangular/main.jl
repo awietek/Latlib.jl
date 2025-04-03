@@ -24,7 +24,7 @@ let
     
 
     ## Finite Bravais Lattice inside of Simulation Torus:
-    FiniteLat = Latlib.FiniteLattice(InFlattice,SimTorus,[false, true],order_yfirst)
+    FiniteLat = Latlib.FiniteLattice(InFlattice,SimTorus,[false, true],order_a2first_triangular)
 
 
     H = OpSum()
