@@ -213,9 +213,9 @@ function write_opsum_to_toml!(opsum::OpSum, filename::String; index_zero::Bool=f
         for (i, op) in enumerate(opsum.ops)
             if index_zero == true
                 @show op.sites .- 1,
-                println(io, "[", " \"$(op.type)\"  ,  ", " \"$(op.coupling)\"  ,  ", op.sites .- 1, " ]")
+                println(io, "[", " \"$(op.type)\"  ,  ", " \"$(op.coupling)\"  ,  ", op.sites .- 1, " ],")
             else
-                println(io, "[", " \"$(op.type)\"  ,  ", " \"$(op.coupling)\"  ,  ", op.sites, " ]")
+                println(io, "[", " \"$(op.type)\"  ,  ", " \"$(op.coupling)\"  ,  ", op.sites, " ],")
             end
         end
         println(io, "]")
