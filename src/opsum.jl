@@ -154,9 +154,10 @@ function lattice_bonds(type::AbstractString, coupling::AbstractString, Flattice:
     OpSumbonds = OpSum()
     for bcoord in eachcol(bravais_coords)
 
-        p1 = bcoord + lattice.positions[:, b1[1]] + lattice.vectors * b1[2:end]
-        p2 = bcoord + lattice.positions[:, b2[1]] + lattice.vectors * b2[2:end]
+        p1 = bcoord + lattice.vectors * lattice.positions[:, b1[1]] + lattice.vectors * b1[2:end]
+        p2 = bcoord + lattice.vectors * lattice.positions[:, b2[1]] + lattice.vectors * b2[2:end]
 
+        @show bcoord, p1, p2
 
         # Check whether the points are in lattice
         s1 = 0

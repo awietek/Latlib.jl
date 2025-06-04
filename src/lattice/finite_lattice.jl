@@ -23,7 +23,7 @@ struct FiniteLattice
     periodicity::Vector{Bool}
     order
 
-    function FiniteLattice(lattice::Lattice, boundary::Matrix{Int64}, periodicity::Vector{Bool}, order=nothing)
+    function FiniteLattice(lattice::Lattice, boundary::AbstractMatrix, periodicity::Vector{Bool}, order=nothing)
         dim_vectors = size(lattice.vectors)
         dim_boundary = size(boundary)
         if dim_vectors != dim_boundary
