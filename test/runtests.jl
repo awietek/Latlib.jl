@@ -1,6 +1,12 @@
-using Latlib
+using Revise
 using Test
+using Latlib
+
 
 @testset "Latlib.jl" begin
-    # Write your tests here.
+    
+    @testset "Lattice class" begin
+        include("test_lattice.jl")
+    end
+
 end

@@ -1,9 +1,20 @@
 module Latlib
 using LinearAlgebra
 
-include("lattice/lattice.jl")
-export Lattice, dimension, natoms, inlattice, vector_position
+include("vectors.jl")
+export EuclideanVector
 
+include("lattice/lattice.jl")
+export Lattice,
+        LatticeVector,
+        dim,
+        natoms,
+        to_lattice_basis,
+        to_euclidean_basis,
+        in_lattice
+
+
+#=
 include("lattice/orders.jl")
 export order_xfirst
 
@@ -21,5 +32,6 @@ export Op, OpSum, unique_ops!, neighbor_bonds, lattice_bonds, write_opsum_to_tom
 
 include("plots.jl")
 export plot, plot_opsum
+=#
 
 end
