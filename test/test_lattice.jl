@@ -113,7 +113,7 @@
             v_lat_coords = zeros(3)
             v_lat_coords[i] = 1.0
             v_lat = LatticeVector(lat, v_lat_coords)
-            v_euc = to_euclidean_basis(lat, v_lat)
+            v_euc = to_euclidean_basis(v_lat)
             @test isapprox(v_euc.coords, A[:, i]) # do we get a_i?
             @test isapprox(to_lattice_basis(lat, v_euc).coords, v_lat_coords) # do we get v_lat_coords back?
         end
@@ -122,7 +122,7 @@
         v_euc = EuclideanVector([1.0, 0.5, 2.0])
         v_lat = to_lattice_basis(lat, v_euc)
         @test isapprox(v_lat.coords, [0.5, 0.5, 0.4])
-        v_euc_back = to_euclidean_basis(lat, LatticeVector(lat, [0.5, 0.5, 0.4]))
+        v_euc_back = to_euclidean_basis(LatticeVector(lat, [0.5, 0.5, 0.4]))
         @test v_euc_back.coords == v_euc.coords
 
         # check additivity
@@ -130,7 +130,7 @@
         @test isapprox(v0.coords, [0.0, 0.0, 0.0])
         v_lat_2 = v_lat + v_lat
         @test isapprox(v_lat_2.coords, 2.0 * v_lat.coords)
-        v_euc_2 = to_euclidean_basis(lat, v_lat_2)
+        v_euc_2 = to_euclidean_basis(v_lat_2)
         @test isapprox(v_euc_2.coords, 2.0 * v_euc.coords)
         
 

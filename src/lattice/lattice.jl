@@ -1,8 +1,6 @@
 using Printf
 using LinearAlgebra
 
-include("../utils.jl")
-
 
 @doc raw"""
     Lattice
@@ -52,7 +50,7 @@ are occupied by identical atoms.
 
 # Arguments
 - `A::Matrix{Float64}`: ``D \times D`` matrix whose rows are the Bravais lattice vectors.
-- `positions::Matrix{Float64}`: ``P \times D`` mat  rix whose columns are the atom positions.
+- `positions::Matrix{Float64}`: ``P \times D`` mat  rix whose columns are the atom positions in fractional (lattice basis) coordinates.
 - `types::Vector{Int64}`: ``P`` dimensional integer vector defining the types of the atoms. Defaults to vector of ones.
 - `tol::Float64`: Tolerance for checking whether a point is part of the lattice. Defaults to `1e-8`.
 """
@@ -153,6 +151,18 @@ dim(lattice::Lattice) = lattice.dim
 """
 natoms(lattice::Lattice) = lattice.natoms
 
+"""
+    positions(lattice::Lattice)
+
+    Obtain the positions of atoms (in the (0,0) cell) as `LatticeVector`'s (not Euclidean vectors).
+
+"""
+function positions(lattice::Lattice) :: Vector{LatticeVector}
+    return [LatticeVector(lattice, lattice.positions[i]) for i in 1:lattice.natoms]
+    # no transformation to lattice basis needed since positions::Matrix{Float64} already assumes lattice basis implicitly
+end
+
+
 # print lattice information in a nice format
 function Base.show(io::IO, lattice::Lattice)
     println(io, "---- Lattice ----")
@@ -188,6 +198,8 @@ function Base.:(==)(l1::Lattice, l2::Lattice)
     end
     return isapprox(l1.positions, l2.positions) && isapprox(l1.types, l2.types)
 end
+
+
 
 
 
@@ -247,12 +259,16 @@ function Base.:-(v1::LatticeVector, v2::LatticeVector)
     return v1 + LatticeVector(v1.lattice, -v2.coords)
 end
 
+@doc raw"""
+    in_lattice(v::LatticeVector)
 
-
-
-
-
-
+    Returns whether a `LatticeVector`, i.e., a real-space vector
+    expressed in terms of a lattice basis, is part of the lattice.
+"""
+function in_lattice(v_lat::LatticeVector)
+    v_lat_diff = v_lat.coords - round.(v_lat.coords)
+    return all(is_whole.(v_lat_diff; atol=v_lat.lattice.tol))
+end
 
 @doc raw"""
     lattice_vectors(lattice::Lattice)
@@ -266,13 +282,12 @@ end
 
 
 @doc raw"""
-    to_euclidean_basis(lattice::Lattice, v_lat::LatticeVector)
+    to_euclidean_basis(v_lat::LatticeVector)
 
     Convert a vector in the lattice basis to `EuclideanVector` in Cartesian coordinates.
 """
-function to_euclidean_basis(lattice::Lattice, v_lat::LatticeVector) :: EuclideanVector
-    v_euc = lattice.A' * v_lat.coords
-    return EuclideanVector(v_euc)
+function to_euclidean_basis(v_lat::LatticeVector) :: EuclideanVector
+    return EuclideanVector(v_lat.lattice.A' * v_lat.coords)
 end
 
 
@@ -286,17 +301,6 @@ function in_lattice(lattice::Lattice, v::EuclideanVector)
     return in_lattice(lattice, v_lat)
 end
 
-
-@doc raw"""
-    in_lattice(v::LatticeVector)
-
-    Returns whether a `LatticeVector`, i.e., a real-space vector
-    expressed in terms of a lattice bsis, is part of the lattice.
-"""
-function in_lattice(v::LatticeVector)
-    v_lat_diff = v_lat.coords - round.(v_lat.coords)
-    return all(is_whole.(v_lat_diff; atol=lattice.tol))
-end
 
 
 

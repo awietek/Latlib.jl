@@ -9,4 +9,8 @@ using Latlib
         include("test_lattice.jl")
     end
 
+    @testset "FiniteLattice class" begin
+        include("test_flattice.jl")
+    end
+
 end

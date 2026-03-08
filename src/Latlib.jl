@@ -1,6 +1,7 @@
 module Latlib
 using LinearAlgebra
 
+include("utils.jl")
 include("vectors.jl")
 export EuclideanVector
 
@@ -14,15 +15,28 @@ export Lattice,
         in_lattice
 
 
-#=
+
 include("lattice/orders.jl")
 export order_xfirst
 
+include("lattice/finite_lattice.jl")
+export FiniteLattice,
+        dim,
+        natoms,
+        FiniteLatticeVector, 
+        to_lattice_basis,
+        to_euclidean_basis,
+        to_finite_lattice_vector,
+        bravais_cells,
+        atom_coords,
+        boundary_vecs
+
+
+#=
 include("lattice/predefined_lattices.jl")
 export square, kagome
 
-include("lattice/finite_lattice.jl")
-export FiniteLattice, bravais_coordinates, coordinates, boundary_vectors, periodicity_vectors
+
 
 include("metric.jl")
 export distance, distance_matrix, distances, neighbors, periodicity
