@@ -13,4 +13,9 @@ using Latlib
         include("test_flattice.jl")
     end
 
+    @testset "Metric module" begin
+        include("test_metric.jl")
+    end
+    
+
 end

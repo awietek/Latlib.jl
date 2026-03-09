@@ -1,5 +1,6 @@
 using Printf
 using LinearAlgebra
+using Base
 
 
 @doc raw"""
@@ -266,7 +267,7 @@ end
     expressed in terms of a lattice basis, is part of the lattice.
 """
 function in_lattice(v_lat::LatticeVector)
-    v_lat_diff = v_lat.coords - round.(v_lat.coords)
+    v_lat_diff = v_lat.coords - Base.round.(v_lat.coords)
     return all(is_whole.(v_lat_diff; atol=v_lat.lattice.tol))
 end
 

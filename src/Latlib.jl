@@ -2,8 +2,16 @@ module Latlib
 using LinearAlgebra
 
 include("utils.jl")
+
+
 include("vectors.jl")
-export EuclideanVector
+export EuclideanVector,
+        equal,
+        plus,
+        minus,
+        mul,
+        norm
+
 
 include("lattice/lattice.jl")
 export Lattice,
@@ -19,6 +27,7 @@ export Lattice,
 include("lattice/orders.jl")
 export order_xfirst
 
+
 include("lattice/finite_lattice.jl")
 export FiniteLattice,
         dim,
@@ -32,14 +41,22 @@ export FiniteLattice,
         boundary_vecs
 
 
+include("metric.jl")
+export EuclideanMetric,
+        PeriodicEuclideanMetric,
+        distance,
+        distance_vector,
+        distance_matrix,
+        distances,
+        neighbors
+
+
 #=
 include("lattice/predefined_lattices.jl")
 export square, kagome
 
 
 
-include("metric.jl")
-export distance, distance_matrix, distances, neighbors, periodicity
 
 include("opsum.jl")
 export Op, OpSum, unique_ops!, neighbor_bonds, lattice_bonds, write_opsum_to_toml!

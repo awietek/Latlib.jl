@@ -49,8 +49,28 @@ function Base.:-(v1::EuclideanVector, v2::EuclideanVector)
     return v1 + EuclideanVector(-v2.coords)
 end
 
+# product with scalar
+function Base.:*(scalar::Number, v::EuclideanVector)
+    return EuclideanVector(scalar * v.coords)
+end
 
+# inner product
+function Base.:*(v1::EuclideanVector, v2::EuclideanVector)
+    if v1.dim != v2.dim
+        throw(ArgumentError("Cannot compute inner product of EuclideanVectors of different dimensions."))
+    end
+    return dot(v1.coords, v2.coords)
+end
 
+# norm
+function norm(v::EuclideanVector)
+    return sqrt(v * v)
+end
+
+# print
+function Base.show(io::IO, v::EuclideanVector)
+    print(io, "EuclideanVector(", v.coords, ")")
+end
 
 
 

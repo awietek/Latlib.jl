@@ -1,4 +1,6 @@
+import Base: round
 using Printf
+using LinearAlgebra
 #using IterTools
 
 @doc raw"""
@@ -21,6 +23,7 @@ struct FiniteLattice
     lattice::Lattice
     boundary::Matrix{Int64}
     periodicity::Vector{Bool}
+    tol::Float64
     order
 
     function FiniteLattice(lattice::Lattice, boundary::Matrix{Int64}, periodicity::Vector{Bool}, order=nothing)
@@ -36,11 +39,15 @@ struct FiniteLattice
             error(@sprintf "Length of periodicity vector (%d) for `FiniteLattice` instances must match the lattice dimension (%d)" length(periodicity) lat_dim)
         end
 
+        # determine tolerance based on tolarance of lattice and size of largest boundary vector
+        max_boundary_vec_length = maximum([LinearAlgebra.norm(boundary[i, :]) for i in 1:lat_dim])
+        tol = lattice.tol * max_boundary_vec_length
+
         # check if order is defined, else default to "isless"
         if isnothing(order)
-            return new(lattice, boundary, periodicity, isless)
+            return new(lattice, boundary, periodicity, tol, isless)
         else
-            return new(lattice, boundary, periodicity, order)
+            return new(lattice, boundary, periodicity, tol, order)
         end
     end
 
@@ -96,27 +103,31 @@ natoms(flattice::FiniteLattice) = flattice.lattice.natoms
 
 # nice printing function
 function Base.show(io::IO, flattice::FiniteLattice)
-    dim = dim(flattice)
+    d = flattice.lattice.dim
     println(io, "FiniteLattice")
-    println(io, @sprintf "D = %d" dim)
-    for i in 1:dim
-        println(io, @sprintf "a%d = %s" i flattice.lattice.A[i])
+    println(io, @sprintf "D = %d" d)
+    for i in 1:d
+        println(io, @sprintf "a%d = %s" i flattice.lattice.A[i, :])
     end
     for i in 1:natoms(flattice.lattice)
-        println(io, @sprintf "x%d = %s (type: %d)" i flattice.lattice.positions[i] flattice.lattice.types[i])
+        println(io, @sprintf "x%d = %s (type: %d)" i flattice.lattice.positions[i, :] flattice.lattice.types[i])
     end
-    for i in 1:dim
-        println(io, @sprintf "b%d = %s" i flattice.boundary[i])
+    for i in 1:d
+        println(io, @sprintf "b%d = %s" i flattice.boundary[i, :])
     end
     println(io, @sprintf "periodicity = %s" flattice.periodicity)
 end
-
 
 
 @doc raw"""
     FiniteLatticeVector(flattice::FiniteLattice, coords::Vector{Float64})
 
     A vector given in terms of the boundary (not lattice) vectors of a `FiniteLattice`.
+
+    Inputs:
+    - `flattice::FiniteLattice`: the finite lattice to which the vector belongs, defining the boundary vectors in terms of which the coordinates are given.
+    - `coords::Vector{Float64}`: the coordinates of the vector in terms of the boundary vectors of the finite lattice.
+
 """
 struct FiniteLatticeVector
     flattice::FiniteLattice
@@ -136,10 +147,10 @@ struct FiniteLatticeVector
 
     # alternative constructor from LatticeVector
     function FiniteLatticeVector(flattice::FiniteLattice, v::LatticeVector)
-        if ! v.lattice == flattice.lattice
+        if !(v.lattice == flattice.lattice)
             error("The `LatticeVector` provided to construct a `FiniteLatticeVector` must belong to the same lattice as the `FiniteLattice`.")
         end
-        return FiniteLatticeVector(v.lattice, inv(v.flattice.boundary') * v.coords)
+        return FiniteLatticeVector(flattice, inv(float.(flattice.boundary)') * v.coords)
     end
 
     # alternative constructor from LatticeVector with boundary only
@@ -182,7 +193,43 @@ function to_finite_lattice_basis(flattice::FiniteLattice, v::LatticeVector) ::Fi
     return FiniteLatticeVector(flattice, v)
 end
 
+@doc """
+    round(v::FiniteLatticeVector)
+
+    Returns the nearest `FiniteLatticeVector` with integer coordinates to the input vector `v`,
+    i.e., the best approximation of v as as multiple of boundary vectors.
 """
+function round(v::FiniteLatticeVector) ::FiniteLatticeVector
+    return FiniteLatticeVector(v.flattice, round.(v.coords))
+end
+
+@doc """
+    on_boundary(v::FiniteLatticeVector)
+
+    Checks if a `FiniteLatticeVector` is a multiple of the boundary vectors, i.e., if it corresponds to a torus vector.
+"""
+function on_boundary(v::FiniteLatticeVector) :: Bool
+    return all(is_whole.(v.coords; atol=v.flattice.tol))
+end
+
+@doc """
+    in_lattice(v::FiniteLatticeVector)
+
+    Checks if a `FiniteLatticeVector` is inside the underlying lattice.
+"""
+function in_lattice(v::FiniteLatticeVector) :: Bool
+    return in_lattice(to_lattice_basis(v))
+end
+
+
+# printing function for `FiniteLatticeVector`
+function Base.show(io::IO, v::FiniteLatticeVector)
+    print(io, "FiniteLatticeVector(", v.coords, ")")
+end
+
+
+
+@doc """
     bravais_cells(flattice::FiniteLattice)
 
     Computes the Bravais coordinates (integer multiples of the lattice vectors)
@@ -190,7 +237,7 @@ end
 """
 function bravais_cells(flattice::FiniteLattice) :: Vector{LatticeVector}
     lattice = flattice.lattice
-    dim = dimension(lattice)
+    ndim = dim(lattice)
 
     unit_cell_area = 1.0 # work in lattice units here
     flattice_area = abs(det(flattice.boundary))
@@ -202,16 +249,16 @@ function bravais_cells(flattice::FiniteLattice) :: Vector{LatticeVector}
 
     # get rectangular bounding box of finite lattice
     flattice_corners = [
-        LatticeVector(lattice, zeros(dim)),
+        LatticeVector(lattice, zeros(ndim)),
         LatticeVector(lattice, flattice.boundary[1]),
         LatticeVector(lattice, 0.5(flattice.boundary[1]+flattice.boundary[2])),
         LatticeVector(lattice, flattice.boundary[2]),
     ]
     
-    min_x = round(Int, minimum([v.coords[1] for v in flattice_corners]))
-    max_x = round(Int, maximum([v.coords[1] for v in flattice_corners]))
-    min_y = round(Int, minimum([v.coords[2] for v in flattice_corners]))
-    max_y = round(Int, maximum([v.coords[2] for v in flattice_corners]))
+    min_x = Base.round(Int, minimum([v.coords[1] for v in flattice_corners]))
+    max_x = Base.round(Int, maximum([v.coords[1] for v in flattice_corners]))
+    min_y = Base.round(Int, minimum([v.coords[2] for v in flattice_corners]))
+    max_y = Base.round(Int, maximum([v.coords[2] for v in flattice_corners]))
 
     # generate trial points inside the bounding box
     bravais_coords = Vector{LatticeVector}()
@@ -224,7 +271,7 @@ function bravais_cells(flattice::FiniteLattice) :: Vector{LatticeVector}
             # check if trial point is inside the finite lattice
             trial_point_fl = to_finite_lattice_basis(flattice, trial_point)
             tol = flattice.lattice.tol
-            is_in_fl = all(trial_point_fl .> -tol) && all(trial_point_fl .< 1 - tol) # include (0, 0) but not torus vectors themselves
+            is_in_fl = all(trial_point_fl.coords .> -tol) && all(trial_point_fl.coords .< 1 - tol) # include (0, 0) but not torus vectors themselves
             if is_in_fl
                 push!(bravais_coords, trial_point)
             end
@@ -246,11 +293,11 @@ end
 """
 function atom_coords(flattice::FiniteLattice) :: Vector{EuclideanVector}
     bravais_coords = bravais_cells(flattice) # respects flattice.order already!
-    positions = positions(flattice.lattice) # Vector{LatticeVector} of atom positions in (0, 0) cell
+    pos = positions(flattice.lattice) # Vector{LatticeVector} of atom positions in (0, 0) cell
  
     # generate list of all coordiantes (same atoms appearing next to each other)
     lattice_coords = Vector{LatticeVector}()
-    for position_lat_vec in positions
+    for position_lat_vec in pos
         for bravais_coord in bravais_coords
             push!(lattice_coords, position_lat_vec + bravais_coord) # sum of `LatticeVector` objects
         end
