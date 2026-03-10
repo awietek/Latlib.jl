@@ -1,56 +1,65 @@
 using Printf
 using GLMakie
 
-function plot2d(flattice::FiniteLattice, ax::Makie.Axis;
+function plot2d(flattice::FiniteLattice,
+    ax::Makie.Axis;
     annotate_sites::Bool=true,
     show_boundary::Bool=true,
     show_neighbors::Bool=true)
 
+    if dim(flattice) != 2
+        error(@sprintf "plot2d only supports 2D lattices, but got dimension %d" dim(flattice))
+    end
 
-    coords = coordinates(flattice)
-    n_coords = size(coords)[2]
+    coords = atoms(flattice)  # Vector{EuclideanVector}
+    n_coords = length(coords)
 
     if show_boundary
-        boundary_cartesian = boundary_vectors(flattice)
-        A = Tuple([0, 0])
-        B = Tuple(boundary_cartesian[:, 1])
-        C = Tuple(boundary_cartesian[:, 1] + boundary_cartesian[:, 2])
-        D = Tuple(boundary_cartesian[:, 2])
+        bvecs = [to_euclidean_basis(v) for v in boundary(flattice)]
+        A = (0.0, 0.0)
+        B = Tuple(bvecs[1].coords)
+        C = Tuple(bvecs[1].coords + bvecs[2].coords)
+        D = Tuple(bvecs[2].coords)
         poly!(ax, Point2f[A, B, C, D], color=1, colormap=:tab10, colorrange=(1, 10), alpha=0.2)
     end
 
     if show_neighbors
-        nbors = neighbors(flattice)
-        for n in eachcol(nbors)
-            p1 = coords[:, n[1]]
-            p2 = coords[:, n[2]]
+        nbors = neighbors(flattice)  # Vector{Tuple{Int64, Int64}}
+        metric_pbc = PeriodicEuclideanMetric(flattice)
+        metric_euc = EuclideanMetric()
+        for (i, j) in nbors
+            p1 = coords[i]
+            p2 = coords[j]
 
             # two points differ by periodic direction
-            if !isapprox(distance(p1, p2, flattice), distance(p1, p2))
+            if !isapprox(metric_pbc(p1, p2), metric_euc(p1, p2))
                 linestyle = :dash
-                d = distance_vector(p2, p1, flattice)
-                p1 = p2 + d
-                scatter!(ax, [p1[1]], [p1[2]], color=:grey, markersize=12)
+                d = distance_vector(p2, p1; flattice=flattice)
+                p1_shifted = p2 + d
+                scatter!(ax, [p1_shifted.coords[1]], [p1_shifted.coords[2]], color=:grey, markersize=12)
                 if annotate_sites
-                    text!(ax, [p1[1]], [p1[2]], text=string.([n[1]]), color=:grey)
+                    text!(ax, [p1_shifted.coords[1]], [p1_shifted.coords[2]], text=string.([i]), color=:grey)
                 end
+                c1 = Tuple(p1_shifted.coords)
             else
                 linestyle = :solid
+                c1 = Tuple(p1.coords)
             end
 
-            c1 = Tuple(p1)
-            c2 = Tuple(p2)
+            c2 = Tuple(p2.coords)
             lines!(ax, [c1, c2], color=2, colormap=:tab10, colorrange=(1, 10),
                 linestyle=linestyle)
         end
     end
 
-    scatter!(ax, coords[1, :], coords[2, :],
+    xs = [c.coords[1] for c in coords]
+    ys = [c.coords[2] for c in coords]
+    scatter!(ax, xs, ys,
         color=1, colormap=:tab10, colorrange=(1, 10),
         markersize=12)
 
     if annotate_sites
-        text!(ax, coords[1, :], coords[2, :], text=string.(1:n_coords))
+        text!(ax, xs, ys, text=string.(1:n_coords))
     end
 
 end
@@ -58,41 +67,42 @@ end
 
 function plot_ops(opsum::OpSum, flattice::FiniteLattice, ax::Makie.Axis;)
     # Assign unique numbers starting from 2 to each bond type
-    bond_types = unique(op.coupling for op in opsum.ops)
+    bond_types = unique(op.cpl for op in opsum.ops)
     color_map = Dict(bond_type => i + 2 for (i, bond_type) in enumerate(bond_types))
 
     # Get coordinates of lattice points
-    coords = coordinates(flattice)
+    coords = atoms(flattice)  # Vector{EuclideanVector}
+
+    metric_pbc = PeriodicEuclideanMetric(flattice)
+    metric_euc = EuclideanMetric()
 
     plotted_bonds = []
     for op in opsum.ops
         # Get the two sites connected by the bond
         site1, site2 = op.sites
-        p1 = coords[:, site1]
-        p2 = coords[:, site2]
-        if !isapprox(distance(p1, p2, flattice), distance(p1, p2))
+        p1 = coords[site1]
+        p2 = coords[site2]
+        if !isapprox(metric_pbc(p1, p2), metric_euc(p1, p2))
             linestyle = :dash
-            d = distance_vector(p2, p1, flattice)
+            d = distance_vector(p2, p1; flattice=flattice)
             p1 = p2 + d
         else
             linestyle = :solid
         end
         # Get the color for the bond type
-        bond_color = color_map[op.coupling]
+        bond_color = color_map[op.cpl]
 
-        c1 = Tuple(p1)
-        c2 = Tuple(p2)
+        c1 = Tuple(p1.coords)
+        c2 = Tuple(p2.coords)
 
-        label = (op.coupling ∉ plotted_bonds) ? string(op.coupling) : ""
-        push!(plotted_bonds, op.coupling)
+        label = (op.cpl ∉ plotted_bonds) ? string(op.cpl) : ""
+        push!(plotted_bonds, op.cpl)
 
-        if label == op.coupling
-            # Plot the line connecting the two points
-            lines!(ax, [c1, c2], color = bond_color, colormap=:tab10, colorrange=(1, 10), linewidth = 2, linestyle=linestyle,label=label)
+        if label == string(op.cpl)
+            lines!(ax, [c1, c2], color = bond_color, colormap=:tab10, colorrange=(1, 10), linewidth = 2, linestyle=linestyle, label=label)
         else
             lines!(ax, [c1, c2], color = bond_color, colormap=:tab10, colorrange=(1, 10), linewidth = 2, linestyle=linestyle)
         end
-        #text!(ax, midpoint[1], midpoint[2]*1.1, text = "$(op.coupling)", align = (:center, :center), fontsize = 12,color = bond_color, colormap=:tab10, colorrange=(1, 10))
     end
     axislegend(ax)
 end
@@ -116,9 +126,9 @@ function plot(flattice::FiniteLattice;
     annotate_sites::Bool=true,
     show_boundary::Bool=true,
     show_neighbors::Bool=true)
-    dim = dimension(flattice)
+    d = dim(flattice)
 
-    if dim == 2
+    if d == 2
         if ax == nothing
             f = Figure()
             ax = Axis(f[1, 1])
@@ -132,7 +142,7 @@ function plot(flattice::FiniteLattice;
             display(f)
         end
     else
-        error(@sprintf "Plotting of FiniteLattice not implemented for dimension %d" dim)
+        error(@sprintf "Plotting of FiniteLattice not implemented for dimension %d" d)
     end
 end
 
@@ -158,9 +168,9 @@ function plot_opsum(opsum::OpSum, flattice::FiniteLattice;
     show_boundary::Bool=true,
     show_neighbors::Bool=true)
 
-    dim = dimension(flattice)
+    d = dim(flattice)
 
-    if dim == 2
+    if d == 2
         if ax == nothing
             f = Figure()
             ax = Axis(f[1, 1])
@@ -176,6 +186,6 @@ function plot_opsum(opsum::OpSum, flattice::FiniteLattice;
             display(f)
         end
     else
-        error(@sprintf "Plotting of FiniteLattice not implemented for dimension %d" dim)
+        error(@sprintf "Plotting of FiniteLattice not implemented for dimension %d" d)
     end
 end

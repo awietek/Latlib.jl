@@ -11,7 +11,6 @@ theta = pi/3
 a1 = [cos(theta) +sin(theta)]
 a2 = [cos(theta) -sin(theta)]
 A_tri = Matrix(vcat(a1, a2))
-println("A_tri = ", A_tri)
 positions_tri = [0.0 0.0]
 const triangular = Lattice(A_tri, positions_tri)
 

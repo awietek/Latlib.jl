@@ -69,4 +69,10 @@ export square,
         kagome
 
 
+include("plots.jl")
+export plot,
+        plot_opsum
+
+
+
 end

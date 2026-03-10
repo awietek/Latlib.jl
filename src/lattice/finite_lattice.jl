@@ -353,15 +353,6 @@ function atoms(flattice::FiniteLattice) :: Vector{EuclideanVector}
     return [to_euclidean_basis(v) for v in lattice_coords]
 end
 
-"""
-    boundary_vecs(flattice::FiniteLattice)
-
-    Returns the vectors defining the boundary as Vector{LatticeVector}
-"""
-function boundary_vecs(flattice::FiniteLattice) :: Vector{LatticeVector}
-    return [LatticeVector(flattice.lattice, flattice.boundary[i]) for i in 1:dim(flattice)]
-end
-
 
 #=
 
