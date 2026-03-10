@@ -20,6 +20,10 @@ using Latlib
     @testset "opsum.jl" begin
         include("test_opsum.jl")
     end
+
+    @testset "predefined_lattices.jl" begin
+        include("test_predefined_lattices.jl")
+    end
     
 
 end

@@ -52,6 +52,7 @@ export EuclideanMetric,
         distances,
         neighbors
 
+        
 include("opsum.jl")
 export Op,
         OpSum,
@@ -62,17 +63,10 @@ export Op,
         lattice_interaction
 
 
-
-#=
 include("lattice/predefined_lattices.jl")
-export square, kagome
+export square,
+        triangular,
+        kagome
 
-
-
-
-
-include("plots.jl")
-export plot, plot_opsum
-=#
 
 end
