@@ -39,8 +39,7 @@ export FiniteLattice,
         to_euclidean_basis,
         to_finite_lattice_vector,
         bravais_cells,
-        atoms,
-        boundary_vecs
+        atoms
 
 
 include("metric.jl")
