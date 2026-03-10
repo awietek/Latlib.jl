@@ -159,8 +159,20 @@ natoms(lattice::Lattice) = lattice.natoms
 
 """
 function positions(lattice::Lattice) :: Vector{LatticeVector}
-    return [LatticeVector(lattice, lattice.positions[i]) for i in 1:lattice.natoms]
+    return [LatticeVector(lattice, lattice.positions[i, :]) for i in 1:lattice.natoms]
     # no transformation to lattice basis needed since positions::Matrix{Float64} already assumes lattice basis implicitly
+end
+
+@doc """
+    get_position(lattice::Lattice, atom_index::Int64)
+
+Obtain the position of a specific atom as a `LatticeVector` object.
+"""
+function get_position(lattice::Lattice, atom_index::Int64) :: LatticeVector
+    if atom_index < 1 || atom_index > lattice.natoms
+        error(@sprintf "Specified atom index %s is out of bounds. Must be between 1 and %s according to specified `Lattice`." atom_index lattice.natoms)
+    end
+    return LatticeVector(lattice, lattice.positions[atom_index, :])
 end
 
 

@@ -86,20 +86,47 @@ struct FiniteLattice
 
 end
 
-"""
+@doc """
     dim(flattice::FiniteLattice)
 
 Obtain the dimension of the lattice.
 """
 dim(flattice::FiniteLattice) = flattice.lattice.dim
 
-"""
+@doc """
     natoms(flattice::FiniteLattice)
 
 Obtain the number of atomic positions
 """
 natoms(flattice::FiniteLattice) = flattice.lattice.natoms
 
+@doc """
+    positions(flattice::FiniteLattice)
+
+Obtain Vector{LatticeVector} objects containing positions of all atoms IN THE UNIT CELL of the underlying lattice.
+"""
+positions(flattice::FiniteLattice) = positions(flattice.lattice)
+
+@doc """
+    get_position(flattice::FiniteLattice, atom_index::Int64)
+
+Obtain the position of a specific atom IN THE UNIT CELL of the underlying lattice as a `LatticeVector` object.
+"""
+get_position(flattice::FiniteLattice, idx::Int64) = get_position(flattice.lattice, idx)
+
+@doc """
+    periodicity(flattice::FiniteLattice)
+
+Obtain the periodicity (::Bool) for each boundary direction.
+"""
+periodicity(flattice::FiniteLattice) = flattice.periodicity
+
+@doc """
+    boundary(flattice::FiniteLattice)
+
+Obtain the boundary vectors of the finite lattice as Vector{LatticeVector}.
+"""
+boundary(flattice::FiniteLattice) = [LatticeVector(flattice.lattice, flattice.boundary[i, :]) for i in 1:dim(flattice)]
 
 # nice printing function
 function Base.show(io::IO, flattice::FiniteLattice)
@@ -117,6 +144,12 @@ function Base.show(io::IO, flattice::FiniteLattice)
     end
     println(io, @sprintf "periodicity = %s" flattice.periodicity)
 end
+
+
+
+
+
+
 
 
 @doc raw"""
@@ -229,6 +262,20 @@ end
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 @doc """
     bravais_cells(flattice::FiniteLattice)
 
@@ -247,51 +294,50 @@ function bravais_cells(flattice::FiniteLattice) :: Vector{LatticeVector}
     end
     num_cells = round(Int, num_cells) # this is how many cells we should find inside the boundaries
 
-    # get rectangular bounding box of finite lattice
-    flattice_corners = [
-        LatticeVector(lattice, zeros(ndim)),
-        LatticeVector(lattice, flattice.boundary[1]),
-        LatticeVector(lattice, 0.5(flattice.boundary[1]+flattice.boundary[2])),
-        LatticeVector(lattice, flattice.boundary[2]),
-    ]
-    
-    min_x = Base.round(Int, minimum([v.coords[1] for v in flattice_corners]))
-    max_x = Base.round(Int, maximum([v.coords[1] for v in flattice_corners]))
-    min_y = Base.round(Int, minimum([v.coords[2] for v in flattice_corners]))
-    max_y = Base.round(Int, maximum([v.coords[2] for v in flattice_corners]))
+    # get rectangular bounding box of finite lattice (all 2^D corners of the parallelepiped)
+    flattice_corners = LatticeVector[]
+    for bits in Iterators.product(ntuple(_ -> 0:1, ndim)...)
+        corner_coords = sum(bits[i] * flattice.boundary[i, :] for i in 1:ndim)
+        push!(flattice_corners, LatticeVector(lattice, float.(corner_coords)))
+    end
+    dim_min = Int64[]
+    dim_max = Int64[]
+    for i in 1:ndim
+        push!(dim_min, round(Int64, floor(minimum([v.coords[i] for v in flattice_corners]))))
+        push!(dim_max, round(Int64, ceil(maximum([v.coords[i] for v in flattice_corners]))))
+    end
+    ranges = [dim_min[i]:dim_max[i] for i in 1:ndim]
 
     # generate trial points inside the bounding box
     bravais_coords = Vector{LatticeVector}()
-    for x_lat in min_x:max_x
-        for y_lat in min_y:max_y
-            trial_point = LatticeVector(lattice, [x_lat, y_lat])
-            if !in_lattice(trial_point) # consistency check, should always be true for integer coordinates
-                throw("bravais_cells: generated trial point that is not in the lattice, this is a bug, please report!")
-            end
-            # check if trial point is inside the finite lattice
-            trial_point_fl = to_finite_lattice_basis(flattice, trial_point)
-            tol = flattice.lattice.tol
-            is_in_fl = all(trial_point_fl.coords .> -tol) && all(trial_point_fl.coords .< 1 - tol) # include (0, 0) but not torus vectors themselves
-            if is_in_fl
-                push!(bravais_coords, trial_point)
-            end
+    for brav_tuple in Iterators.product(ranges...)
+        trial_point = LatticeVector(lattice, collect(brav_tuple))
+        if !in_lattice(trial_point) # consistency check, should always be true for integer coordinates
+            throw("bravais_cells: generated trial point that is not in the lattice, this is a bug, please report!")
+        end
+        # check if trial point is inside the finite lattice
+        trial_point_fl = to_finite_lattice_basis(flattice, trial_point)
+        tol = flattice.lattice.tol
+        is_in_fl = all(trial_point_fl.coords .> -tol) && all(trial_point_fl.coords .< 1 - tol) # include (0, 0) but not torus vectors themselves
+        if is_in_fl
+            push!(bravais_coords, trial_point)
         end
     end
 
-    # take care of sorting
-    sort!(bravais_coords, lt=flattice.order)
+    # take care of sorting 
+    sort!(bravais_coords; lt = (v_lat1, v_lat2) -> flattice.order(v_lat1.coords, v_lat2.coords))
 
     return bravais_coords
 end
 
 """
-    atom_coords(flattice::FiniteLattice)
+    atoms(flattice::FiniteLattice)
 
     Computes all atom coordinates inside the finite lattice in Euclidean coordinates.
     Coordinates are ordered such that identical atoms in different unit cells appear
     next to each other, while the order of unit cells follows flattice.order.
 """
-function atom_coords(flattice::FiniteLattice) :: Vector{EuclideanVector}
+function atoms(flattice::FiniteLattice) :: Vector{EuclideanVector}
     bravais_coords = bravais_cells(flattice) # respects flattice.order already!
     pos = positions(flattice.lattice) # Vector{LatticeVector} of atom positions in (0, 0) cell
  

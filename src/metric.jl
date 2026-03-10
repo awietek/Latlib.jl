@@ -94,8 +94,6 @@ function distance(x1::EuclideanVector, x2::EuclideanVector; flattice=nothing) ::
     return metric(x1, x2)
 end
 
-
-
 @doc """
     distance_matrix(points::AbstractMatrix; flattice=nothing)
 
@@ -156,7 +154,7 @@ Computes which pairs of the input points are k-th nearest neighbors where k = nu
 # Returns
 - neighbors::Vector{Tuple{Int64, Int64}}: Vectors of index pairs (i, j) with i<j of points that are num_distance-th nearest neighbors.
 """
-function neighbors(points::Vector{EuclideanVector}; num_distance::Integer=1, flattice=nothing)
+function neighbors(points::Vector{EuclideanVector}; num_distance::Integer=1, flattice=nothing) :: Vector{Tuple{Int64, Int64}}
 
     N = length(points)
     dists = distances(points; flattice=flattice)
@@ -187,4 +185,8 @@ function neighbors(points::Vector{EuclideanVector}; num_distance::Integer=1, fla
     end
 
     return result
+end
+
+function neighbors(flattice::FiniteLattice; num_distance::Integer=1)
+    return neighbors(atoms(flattice); num_distance=num_distance, flattice=flattice)
 end

@@ -5,16 +5,20 @@ using Latlib
 
 @testset "Latlib.jl" begin
     
-    @testset "Lattice class" begin
+    @testset "lattice.jl" begin
         include("test_lattice.jl")
     end
 
-    @testset "FiniteLattice class" begin
+    @testset "flattice.jl" begin
         include("test_flattice.jl")
     end
 
-    @testset "Metric module" begin
+    @testset "metric.jl" begin
         include("test_metric.jl")
+    end
+
+    @testset "opsum.jl" begin
+        include("test_opsum.jl")
     end
     
 
