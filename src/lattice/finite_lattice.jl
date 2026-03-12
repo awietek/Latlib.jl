@@ -128,6 +128,16 @@ Obtain the boundary vectors of the finite lattice as Vector{LatticeVector}.
 """
 boundary(flattice::FiniteLattice) = [LatticeVector(flattice.lattice, flattice.boundary[i, :]) for i in 1:dim(flattice)]
 
+
+@doc """
+    lattice_vecs(flattice::FiniteLattice) :: Vector{EuclideanVector}
+
+Returns list of lattice vectors as `EuclideanVector`s.
+"""
+function lattice_vecs(flattice::FiniteLattice) :: Vector{EuclideanVector}
+    return [EuclideanVector(flattice.lattice.A[i, :]) for i in 1:flattice.lattice.dim]
+end
+
 # nice printing function
 function Base.show(io::IO, flattice::FiniteLattice)
     d = flattice.lattice.dim
@@ -254,7 +264,6 @@ function in_lattice(v::FiniteLatticeVector) :: Bool
     return in_lattice(to_lattice_basis(v))
 end
 
-
 # printing function for `FiniteLatticeVector`
 function Base.show(io::IO, v::FiniteLatticeVector)
     print(io, "FiniteLatticeVector(", v.coords, ")")
@@ -352,6 +361,7 @@ function atoms(flattice::FiniteLattice) :: Vector{EuclideanVector}
     # convert to Euclidean coordinates
     return [to_euclidean_basis(v) for v in lattice_coords]
 end
+
 
 
 #=

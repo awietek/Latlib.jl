@@ -18,6 +18,9 @@ export Lattice,
         LatticeVector,
         dim,
         natoms,
+        positions,
+        get_position,
+        lattice_vecs,
         to_lattice_basis,
         to_euclidean_basis,
         in_lattice
@@ -34,6 +37,7 @@ export FiniteLattice,
         natoms,
         periodicity,
         boundary,
+        lattice_vecs,
         FiniteLatticeVector, 
         to_lattice_basis,
         to_euclidean_basis,
@@ -65,11 +69,13 @@ export Op,
 include("lattice/predefined_lattices.jl")
 export square,
         triangular,
-        kagome
+        kagome,
+        hyperhoneycomb
 
 
 include("plots.jl")
 export plot,
+        plot_3d,
         plot_opsum
 
 

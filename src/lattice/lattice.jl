@@ -104,6 +104,11 @@ struct Lattice
         new(A, positions, types, dim, natoms, tol)
     end
 
+    # ----- Definition of alternative constructors for convenience -----
+
+    # RULE: If positions are given as EuclideanVectors, they are interpreted
+    #       as Cartesian coordinates, i.e., not in terms of the lattice basis!
+
     # alternative constructor using `EuclideanVector` type for lattice vectors but not for positions
     function Lattice(vs::Vector{EuclideanVector}, positions::Matrix{Float64}; types::Vector{Int64}=ones(Int64, size(positions)[1]), tol::Float64=1e-8)
         A = Matrix(hcat([v.coords for v in vs]...)')
@@ -113,13 +118,15 @@ struct Lattice
     # alternative constructor using `EuclideanVector` type for lattice vectors and for positions
     function Lattice(vs::Vector{EuclideanVector}, positions::Vector{EuclideanVector}; types::Vector{Int64}=ones(Int64, length(positions)), tol::Float64=1e-8)
         A = Matrix(hcat([v.coords for v in vs]...)')
-        pos = Matrix(hcat([p.coords for p in positions]...)')
+        pos_vecs = [inv(A') * p.coords for p in positions] # converts Cartesian basis to lattice basis
+        pos = Matrix(hcat(pos_vecs...)')
         Lattice(A, pos; types = types, tol = tol)
     end
 
     # alternative constructor using `EuclideanVector` type for positions but not for lattice vectors
     function Lattice(A::Matrix{Float64}, positions::Vector{EuclideanVector}; types::Vector{Int64}=ones(Int64, length(positions)), tol::Float64=1e-8)
-        pos = Matrix(hcat([p.coords for p in positions]...)')
+        pos_vecs = [inv(A') * p.coords for p in positions] # converts Cartesian basis to lattice basis
+        pos = Matrix(hcat(pos_vecs...)')
         Lattice(A, pos; types = types, tol = tol)
     end
 
@@ -173,6 +180,15 @@ function get_position(lattice::Lattice, atom_index::Int64) :: LatticeVector
         error(@sprintf "Specified atom index %s is out of bounds. Must be between 1 and %s according to specified `Lattice`." atom_index lattice.natoms)
     end
     return LatticeVector(lattice, lattice.positions[atom_index, :])
+end
+
+@doc """
+    lattice_vecs(lattice::Lattice) :: Vector{EuclideanVector}
+
+Returns list of lattice vectors as `EuclideanVector`s.
+"""
+function lattice_vecs(lattice::Lattice) :: Vector{EuclideanVector}
+    return [EuclideanVector(lattice.A[i, :]) for i in 1:lattice.dim]
 end
 
 

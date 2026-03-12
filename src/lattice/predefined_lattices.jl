@@ -1,28 +1,52 @@
-# ----- 2D Lattices -----
+# ----------------------------------------------------
+#                     2D LATTICES
+# ----------------------------------------------------
 
-# square lattice
+
+# ----- square lattice -----
 A_square = [1.0 0.0;
             0.0 1.0]
-positions_square = [0.0 0.0]
-const square = Lattice(A_square, positions_square)
+pos_square = [0.0 0.0]
+const square = Lattice(A_square, pos_square)
 
-# triangular lattice
+# ----- triangular lattice -----
 theta = pi/3
 a1 = [cos(theta) +sin(theta)]
 a2 = [cos(theta) -sin(theta)]
 A_tri = Matrix(vcat(a1, a2))
-positions_tri = [0.0 0.0]
-const triangular = Lattice(A_tri, positions_tri)
+pos_tri = [0.0 0.0]
+const triangular = Lattice(A_tri, pos_tri)
 
-# kagome lattice
+# ----- kagome lattice -----
 A_kagome = [
         1.0 0.0;
         0.5 sqrt(3)/2;
     ]
-positions_kagome = [
+pos_kagome = [
     0.0 0.0;
     0.5 0.0;
     0.0 0.5;
     ]
-const kagome = Lattice(A_kagome, positions_kagome)
+const kagome = Lattice(A_kagome, pos_kagome)
+
+
+# ----------------------------------------------------
+#                     3D LATTICES
+# ----------------------------------------------------
+
+# ----- hyperhoneycomb lattice -----
+A_hyp = [
+        2.0 4.0 0.0;  # a1
+        3.0 3.0 2.0;  # a2
+        -1.0 1.0 2.0; # a3
+    ]
+pos_hyp_eucl_coords = [
+        [0.0, 0.0, 0.0],
+        [1.0, 1.0, 0.0],
+        [1.0, 2.0, 1.0],
+        [2.0, 3.0, 1.0],
+    ]
+# by using the EuclideanVector constructor, we can give the atom coordiates
+# in standard basis and dont have to convert to lattice basis
+const hyperhoneycomb = Lattice(A_hyp, EuclideanVector.(pos_hyp_eucl_coords))
 

@@ -93,4 +93,71 @@ using LinearAlgebra
         @test length(nbs) == 2 * nsites   # 4 per site / 2
     end
 
+
+
+    @testset "Hyperhoneycomb" begin
+
+        @testset "Lattice Construction" begin
+            @test isa(hyperhoneycomb, Lattice)
+            @test hyperhoneycomb.dim == 3
+            @test length(positions(hyperhoneycomb)) == 4
+            @test hyperhoneycomb.A == [2.0 4.0 0.0; 3.0 3.0 2.0; -1.0 1.0 2.0]
+        end
+
+        # create N = 16 finite lattice with periodic boundaries (Alex's TOML file as reference)
+        flat_16_vecs = [
+            LatticeVector(hyperhoneycomb, [-1, 1, 1]),  # t1
+            LatticeVector(hyperhoneycomb, [1, 1, -1]),  # t2
+            LatticeVector(hyperhoneycomb, [-1, 1, -1]), # t3
+        ]
+
+        @test to_euclidean_basis(flat_16_vecs[1]).coords == [0.0, 0.0, 4.0]   # t1 euclidean
+        @test to_euclidean_basis(flat_16_vecs[2]).coords == [6.0, 6.0, 0.0]   # t2 euclidean
+        @test to_euclidean_basis(flat_16_vecs[3]).coords == [2.0, -2.0, 0.0]  # t3 euclidean
+
+        flat_16 = FiniteLattice(flat_16_vecs, true)
+        @test dim(flat_16) == 3
+        @test natoms(flat_16) == 4
+        @test periodicity(flat_16) == [true, true, true]
+        @test length(bravais_cells(flat_16)) == 4
+        @test length(atoms(flat_16)) == 16
+
+        println("coordinates of 16-site hyperhoneycomb cluster")
+        for (i, v_euc) in enumerate(atoms(flat_16))
+            println("$i: ", v_euc)
+        end
+
+        # create N = 32 finite lattice with periodic boundaries
+        flat_32_vecs = [
+            LatticeVector(hyperhoneycomb, [-1, 1, 1]),
+            LatticeVector(hyperhoneycomb, [1, 1, -1]),
+            LatticeVector(hyperhoneycomb, [-2, 1, -2]),
+        ]
+        println("Simulation torus vectors for 32-site hyperhoneycomb cluster:")
+        for (i, v) in enumerate(flat_32_vecs)
+            @show v
+        end
+
+
+        flat_32 = FiniteLattice(flat_32_vecs, true)
+        @test dim(flat_32) == 3
+        @test natoms(flat_32) == 4
+        @test periodicity(flat_32) == [true, true, true]
+        @test length(bravais_cells(flat_32)) == 8
+        @test length(atoms(flat_32)) == 32
+
+        println("coordinates of 32-site hyperhoneycomb cluster")
+        for (i, v_euc) in enumerate(atoms(flat_32))
+            println("$i: ", v_euc)
+        end
+
+
+
+
+
+
+
+
+    end
+
 end
