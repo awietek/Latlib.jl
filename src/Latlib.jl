@@ -79,7 +79,11 @@ export plot,
 
 
 include("write_file.jl")
-export write_toml
+export write_toml,
+        toml_coordinates,
+        toml_interactions,
+        toml_lattice,
+        toml_metadata
 
 
 end
