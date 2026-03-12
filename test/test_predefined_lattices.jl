@@ -122,10 +122,10 @@ using LinearAlgebra
         @test length(bravais_cells(flat_16)) == 4
         @test length(atoms(flat_16)) == 16
 
-        println("coordinates of 16-site hyperhoneycomb cluster")
-        for (i, v_euc) in enumerate(atoms(flat_16))
-            println("$i: ", v_euc)
-        end
+        println("----- Hyperhoneycomb N=16 TOML file -----")
+        opsum_16 = neighbor_interaction("SdotS", "J", flat_16)
+        toml_string = write_toml(flat_16, opsum_16, "placeholder"; zero_based=true, return_string=true)
+        println(toml_string)
 
         # create N = 32 finite lattice with periodic boundaries
         flat_32_vecs = [
@@ -133,12 +133,6 @@ using LinearAlgebra
             LatticeVector(hyperhoneycomb, [1, 1, -1]),
             LatticeVector(hyperhoneycomb, [-2, 1, -2]),
         ]
-        println("Simulation torus vectors for 32-site hyperhoneycomb cluster:")
-        for (i, v) in enumerate(flat_32_vecs)
-            @show v
-        end
-
-
         flat_32 = FiniteLattice(flat_32_vecs, true)
         @test dim(flat_32) == 3
         @test natoms(flat_32) == 4
@@ -146,10 +140,10 @@ using LinearAlgebra
         @test length(bravais_cells(flat_32)) == 8
         @test length(atoms(flat_32)) == 32
 
-        println("coordinates of 32-site hyperhoneycomb cluster")
-        for (i, v_euc) in enumerate(atoms(flat_32))
-            println("$i: ", v_euc)
-        end
+        println("----- Hyperhoneycomb N=32 TOML file -----")
+        opsum_32 = neighbor_interaction("SdotS", "J", flat_32)
+        toml_string = write_toml(flat_32, opsum_32, "placeholder"; zero_based=true, return_string=true)
+        println(toml_string)
 
 
 

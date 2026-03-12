@@ -26,7 +26,6 @@ export Lattice,
         in_lattice
 
 
-
 include("lattice/orders.jl")
 export order_xfirst
 
@@ -78,6 +77,9 @@ export plot,
         plot_3d,
         plot_opsum
 
+
+include("write_file.jl")
+export write_toml
 
 
 end
