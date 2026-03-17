@@ -57,7 +57,7 @@ struct FiniteLattice
     end
 
     # alternative constructor for use of LatticeVector types for boundary
-    function FiniteLattice(boundary::Vector{LatticeVector}, periodicity::Vector{Bool}, order=nothing)
+    function FiniteLattice(boundary::Vector{LatticeVector}, periodicity::Vector{Bool}; order=nothing)
         lattice = boundary[1].lattice
         lat_dim = lattice.dim
         for v in boundary
@@ -81,7 +81,7 @@ struct FiniteLattice
 
     # alternative constructor with LatticeVectors and periodicity set everywhere
     function FiniteLattice(boundary::Vector{LatticeVector}, periodicity::Bool=true; order=nothing)
-        return FiniteLattice(boundary, fill(periodicity, length(boundary)), order)
+        return FiniteLattice(boundary, fill(periodicity, length(boundary)); order=order)
     end
 
 end
@@ -352,8 +352,9 @@ end
     atoms(flattice::FiniteLattice)
 
     Computes all atom coordinates inside the finite lattice in Euclidean coordinates.
-    Coordinates are ordered such that identical atoms in different unit cells appear
-    next to each other, while the order of unit cells follows flattice.order.
+    
+    # Arguments
+    - `flattice::FiniteLattice`: the finite lattice for which to compute the atom coordinates.;
 """
 function atoms(flattice::FiniteLattice) :: Vector{EuclideanVector}
     bravais_coords = bravais_cells(flattice) # respects flattice.order already!
@@ -366,7 +367,9 @@ function atoms(flattice::FiniteLattice) :: Vector{EuclideanVector}
             push!(lattice_coords, position_lat_vec + bravais_coord) # sum of `LatticeVector` objects
         end
     end
+    euclidean_coords = [to_euclidean_basis(v) for v in lattice_coords]
 
-    # convert to Euclidean coordinates
-    return [to_euclidean_basis(v) for v in lattice_coords]
+    # convert to Euclidean coordinates and sort according to flattice.order
+    return sort!(euclidean_coords; lt = (v1, v2) -> flattice.order(v1.coords, v2.coords))
+    
 end

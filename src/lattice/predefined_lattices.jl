@@ -17,6 +17,18 @@ A_tri = Matrix(vcat(a1, a2))
 pos_tri = [0.0 0.0]
 const triangular = Lattice(A_tri, pos_tri)
 
+# ----- Shastry-Sutherland lattice -----
+# (square Bravais lattice with 4 atoms per unit cell)
+A_ss = [
+    1.0 0.0;
+    0.0 1.0
+]
+pos_ss = [0.0 0.0;
+                0.0 0.5;
+                0.5 0.0;
+                0.5 0.5]
+const shastry_sutherland = Lattice(A_ss, pos_ss)
+
 # ----- kagome lattice -----
 A_kagome = [
         1.0 0.0;

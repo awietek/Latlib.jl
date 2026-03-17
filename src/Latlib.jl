@@ -70,6 +70,7 @@ include("lattice/predefined_lattices.jl")
 export square,
         triangular,
         kagome,
+        shastry_sutherland,
         hyperhoneycomb
 
 

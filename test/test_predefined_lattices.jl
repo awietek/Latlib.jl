@@ -334,4 +334,109 @@ using LinearAlgebra
 
     end
 
+    # ================================================================
+    # Shastry-Sutherland lattice with one open one periodic boundary
+    # ================================================================
+    @testset "Shastry-Sutherland cylinder" begin
+        L = 6
+        W = 4
+        boundary = [L÷2 0; 0 W÷2]
+        fl = FiniteLattice(shastry_sutherland, boundary, [false, true], order_xfirst)
+        
+        # check if coordinates match
+        coordinate_str = toml_coordinates(fl, "placeholder"; zero_based=false)
+        coordinate_str_expected = "Coordinates = [
+            [0.0, 0.0],
+            [0.0, 0.5],
+            [0.0, 1.0],
+            [0.0, 1.5],
+            [0.5, 0.0],
+            [0.5, 0.5],
+            [0.5, 1.0],
+            [0.5, 1.5],
+            [1.0, 0.0],
+            [1.0, 0.5],
+            [1.0, 1.0],
+            [1.0, 1.5],
+            [1.5, 0.0],
+            [1.5, 0.5],
+            [1.5, 1.0],
+            [1.5, 1.5],
+            [2.0, 0.0],
+            [2.0, 0.5],
+            [2.0, 1.0],
+            [2.0, 1.5],
+            [2.5, 0.0],
+            [2.5, 0.5],
+            [2.5, 1.0],
+            [2.5, 1.5],
+            ]"
+        @test replace(coordinate_str, r"\s+" => "") == replace(coordinate_str_expected, r"\s+" => "")
+
+        # create standard J-Jd Hamiltonian for Shastry-Sutherland cylinder
+        H = OpSum()
+        H += neighbor_interaction("SdotS", "J", fl; num_distance=1)
+        # Jd dimer bond 1: atom 1 and atom 4 within the same unit cell
+        H += lattice_interaction("SdotS", "Jd", fl, 1, 4, [0, 0])
+        # Jd dimer bond 2: atom 3 (origin cell) to atom 2 (cell offset [1,-1])
+        H += lattice_interaction("SdotS", "Jd", fl, 3, 2, [1, -1])
+        interaction_str = toml_interactions(fl, H, "placeholder"; zero_based=false)
+        interaction_str_expected = "Interactions = [
+            ['J', 'SdotS', 1, 2],
+            ['J', 'SdotS', 1, 4],
+            ['J', 'SdotS', 1, 5],
+            ['J', 'SdotS', 2, 3],
+            ['J', 'SdotS', 2, 6],
+            ['J', 'SdotS', 3, 4],
+            ['J', 'SdotS', 3, 7],
+            ['J', 'SdotS', 4, 8],
+            ['J', 'SdotS', 5, 6],
+            ['J', 'SdotS', 5, 8],
+            ['J', 'SdotS', 5, 9],
+            ['J', 'SdotS', 6, 7],
+            ['J', 'SdotS', 6, 10],
+            ['J', 'SdotS', 7, 8],
+            ['J', 'SdotS', 7, 11],
+            ['J', 'SdotS', 8, 12],
+            ['J', 'SdotS', 9, 10],
+            ['J', 'SdotS', 9, 12],
+            ['J', 'SdotS', 9, 13],
+            ['J', 'SdotS', 10, 11],
+            ['J', 'SdotS', 10, 14],
+            ['J', 'SdotS', 11, 12],
+            ['J', 'SdotS', 11, 15],
+            ['J', 'SdotS', 12, 16],
+            ['J', 'SdotS', 13, 14],
+            ['J', 'SdotS', 13, 16],
+            ['J', 'SdotS', 13, 17],
+            ['J', 'SdotS', 14, 15],
+            ['J', 'SdotS', 14, 18],
+            ['J', 'SdotS', 15, 16],
+            ['J', 'SdotS', 15, 19],
+            ['J', 'SdotS', 16, 20],
+            ['J', 'SdotS', 17, 18],
+            ['J', 'SdotS', 17, 20],
+            ['J', 'SdotS', 17, 21],
+            ['J', 'SdotS', 18, 19],
+            ['J', 'SdotS', 18, 22],
+            ['J', 'SdotS', 19, 20],
+            ['J', 'SdotS', 19, 23],
+            ['J', 'SdotS', 20, 24],
+            ['J', 'SdotS', 21, 22],
+            ['J', 'SdotS', 21, 24],
+            ['J', 'SdotS', 22, 23],
+            ['J', 'SdotS', 23, 24],
+            ['Jd', 'SdotS', 1, 6],
+            ['Jd', 'SdotS', 3, 8],
+            ['Jd', 'SdotS', 9, 14],
+            ['Jd', 'SdotS', 11, 16],
+            ['Jd', 'SdotS', 17, 22],
+            ['Jd', 'SdotS', 19, 24],
+            ['Jd', 'SdotS', 5, 12],
+            ['Jd', 'SdotS', 7, 10],
+            ['Jd', 'SdotS', 13, 20],
+            ['Jd', 'SdotS', 15, 18],
+        ]"
+        @test replace(interaction_str, r"\s+" => "") == replace(interaction_str_expected, r"\s+" => "")
+    end
 end

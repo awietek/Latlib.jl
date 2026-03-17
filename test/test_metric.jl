@@ -586,5 +586,7 @@
         @test metric(o, combined) ≈ 50.0 atol=flat_cub_t3only.lattice.tol
     end
 
+    
+
 
 end

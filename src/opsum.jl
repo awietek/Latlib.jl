@@ -214,16 +214,13 @@ function lattice_interaction(type::String,
     
     # take care of periodicity of finite lattice
     period = periodicity(flattice)
-    if !( all(period .== false) || all(period .== true) )
-        error("Finite lattices with mixed periodicities are currently not supported. Use either full periodic boundary conditions or open boundary conditions.")
-    end
 
     # define metric and distance function
     metric = nothing
-    if all(period .== true)
-        metric = PeriodicEuclideanMetric(flattice)
-    else
+    if all(period .== false)
         metric = EuclideanMetric()
+    else
+        metric = PeriodicEuclideanMetric(flattice)
     end
     dist(x, y) = metric(x, y)
 
@@ -250,7 +247,8 @@ function lattice_interaction(type::String,
             end
         end
         if isnothing(site1)
-            error(@sprintf "Could not match atom1 %s in cell %s to any of the vectors in flattice.lattice.positions." a1_lvec cell)
+            continue
+            #error(@sprintf "Could not match atom1 %s in cell %s to any of the vectors in flattice.lattice.positions." a1_lvec cell)
         end
 
         site2 = nothing
@@ -261,7 +259,8 @@ function lattice_interaction(type::String,
             end
         end
         if isnothing(site2)
-            error(@sprintf "Could not match atom2 %s in cell %s to any of the vectors in flattice.lattice.positions." a2_lvec cell)
+            continue
+            #error(@sprintf "Could not match atom2 %s in cell %s to any of the vectors in flattice.lattice.positions." a2_lvec cell)
         end
 
         # append tuples (i, j) where i < j
