@@ -36,6 +36,7 @@ export FiniteLattice,
         natoms,
         periodicity,
         boundary,
+        periodic_boundary,
         lattice_vecs,
         FiniteLatticeVector, 
         to_lattice_basis,
@@ -78,12 +79,15 @@ export plot,
         plot_opsum
 
 
-include("write_file.jl")
+include("write.jl")
 export write_toml,
         toml_coordinates,
         toml_interactions,
         toml_lattice,
         toml_metadata
+
+include("read.jl")
+export read_toml_interaction
 
 
 end

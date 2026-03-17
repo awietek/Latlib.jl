@@ -118,6 +118,13 @@ function unique_ops!(opsum::OpSum)
     opsum.ops = sort(unique(opsum.ops))
 end
 
+# equality check for two OpSums
+function Base.:(==)(opsum1::OpSum, opsum2::OpSum)
+    unique_ops!(opsum1)
+    unique_ops!(opsum2)
+    return opsum1.ops == opsum2.ops
+end
+
 
 @doc raw"""
     neighbor_interaction(type::String, cpl::Union{String, Number}, flattice::FiniteLattice; num_distance::Int64=1)

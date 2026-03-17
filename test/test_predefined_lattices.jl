@@ -209,6 +209,18 @@ using LinearAlgebra
                 ['KZ', 'SzSz', 0, 15],
                 ]"
             @test replace(interaction_string, r"\s+" => "") == replace(interaction_string_ref, r"\s+" => "")
+            # check if the interaction string is the same as the one obtained from reading the TOML file in the example
+            println("output of @__DIR__: ", @__DIR__)
+            toml_opsum_16 = read_toml_interaction(joinpath(@__DIR__, "..", "examples/Hyperhoneycomb/hyperhoneycomb-N-16-ver-1.toml"); zero_based=true)
+            
+            for (i, op) in enumerate((opsum_16_HB + opsum_16_kitaev).ops)
+                println("op $i: ", op)
+            end
+            for (i, op) in enumerate(toml_opsum_16.ops)
+                println("toml op $i: ", op)
+            end
+            
+            @test (opsum_16_HB + opsum_16_kitaev) == toml_opsum_16
         end
 
         @testset "N=32 cluster" begin
