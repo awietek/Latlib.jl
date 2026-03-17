@@ -24,31 +24,42 @@ function distance_vector(x1::EuclideanVector, x2::EuclideanVector; flattice=noth
         return r_euc
     else
 
-        # ----- ATTENTION ----- 
-        # Naively, one would now expect that round(r_fl.coords) gives the coordinates
-        # of the FiniteLatticeVector that is closest to r_fl in euclidean real space distance.
-        # For strongly elongated/ non-orthogonal unit cells this is not always the case, however.
-        # To properly circumvent this issue, there are well known methods like Niggli/Delaunay 
-        # reduction etc.
-        # We use a dirty work-around here that hopefully works in most cases but might still fail for extreme cases!!!
-        
-        r_fl = FiniteLatticeVector(flattice, r_euc)
-        n0 = round.(r_fl.coords)  # initial guess via component-wise rounding
-        ndim = length(n0)
+        # get the boundary vectors along which periodicity is assumed, as Vector{LatticeVector}
+        periodic_boundary_vecs = periodic_boundary(flattice)
+        if length(periodic_boundary_vecs) == 0
+            return r_euc # no periodicity -> standard euclidean treatment
+        end
 
-        # Search all 2^d neighboring integer vectors around n0 to find the true minimum image
-        best_dist = Inf
-        best_shift = nothing
-        for offset in Iterators.product(ntuple(_ -> -1:1, ndim)...)
-            n_trial = n0 .+ collect(offset)
-            shift = FiniteLatticeVector(flattice, n_trial)
-            dist = norm(to_euclidean_basis(shift) - r_euc)
-            if dist < best_dist
-                best_dist = dist
-                best_shift = shift
+        # construct "torus matrix" in euclidean coordinates (boundary vecs in columns)
+        T = hcat([to_euclidean_basis(vec).coords for vec in periodic_boundary_vecs]...)
+
+        # For n = D periodicity vectors, the next line computes the representation of r_euc in the basis of boundary vectors (which we also could have done by calling FiniteLatticeVector(flattice, r_euc) ... )
+        # For n < D periodicity vectors, the next line computes the linear combination of these vectors that brings us closest to r_euc,
+        # i.e., we minimize | T * u - r_euc |_2 w.r.t. u, where the solution corresponds to the coordinates of the "pseudo-FiniteLatticeVector" of length n < D.
+        r_pseudo_fl_coords = T \ (r_euc.coords)
+        n = length(r_pseudo_fl_coords)
+
+        # ----- ATTENTION ----- 
+        # We now know that r_pseudo_fl_coords minimizes | T * u - r_euc |_2 with u = r_pseudo_fl_coords.
+        # However, the periodicity of the cluster only allows us to perform shifts by integer multiples of the periodicity vectors.
+        # Naively, one would now round r_pseudo_fl_coords to nearest integers, but this is not always correct for strongly non-orthogonal basis vectors.
+        # To properly circumvent this issue, there are well known methods like Niggli/Delaunay reduction etc.
+        # but we here use a dirty work-around for now that should work in at least some  (but still fail in extreme) cases!!!
+        
+        naive_guess = round.(Int, r_pseudo_fl_coords)
+        # Search all 2^d neighboring integer vectors around the naive guess to hopefully find the true minimum
+        better_dist = Inf
+        better_guess = nothing
+        for offset in Iterators.product(ntuple(_ -> -1:1, n)...)
+            n_trial = naive_guess .+ collect(offset)
+            t_trial = EuclideanVector(T * n_trial)
+            dist = norm(t_trial - r_euc)
+            if dist < better_dist
+                better_dist = dist
+                better_guess = n_trial
             end
         end
-        return r_euc - to_euclidean_basis(best_shift)
+        return r_euc - EuclideanVector(T * better_guess)
     end
 end
 

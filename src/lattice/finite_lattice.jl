@@ -128,6 +128,15 @@ Obtain the boundary vectors of the finite lattice as Vector{LatticeVector}.
 """
 boundary(flattice::FiniteLattice) = [LatticeVector(flattice.lattice, flattice.boundary[i, :]) for i in 1:dim(flattice)]
 
+@doc """
+    periodic_boundary(flattice::FiniteLattice)
+
+Obtain the boundary vectors of the finite lattice along which periodicity is assumed
+when computing distances etc.
+"""
+function periodic_boundary(flattice::FiniteLattice)
+    return [LatticeVector(flattice.lattice, flattice.boundary[i, :]) for i in 1:dim(flattice) if flattice.periodicity[i]]
+end
 
 @doc """
     lattice_vecs(flattice::FiniteLattice) :: Vector{EuclideanVector}
@@ -361,52 +370,3 @@ function atoms(flattice::FiniteLattice) :: Vector{EuclideanVector}
     # convert to Euclidean coordinates
     return [to_euclidean_basis(v) for v in lattice_coords]
 end
-
-
-
-#=
-
-
-"""
-    neighbors(flattice::FiniteLattice; num_distance::Integer=1)
-
-    Computes which pairs of coordinates are neighbors
-
-    # Arguments
-    - `flattice::FiniteLattice`: finite lattice 
-
-    # Keyword arguments
-    - `num_distance::Integer=1`: at which distance neighbors are considered, 1 -> nearest neighbor, 2 -> second nearest neighbor, etc.
-"""
-function neighbors(flattice::FiniteLattice; num_distance::Integer=1)
-    return neighbors(coordinates(flattice);
-                     num_distance=num_distance,
-                     periodicity_vectors=periodicity_vectors(flattice))
-end
-
-
-"""
-    distance(x1::AbstractVector, x2::AbstractVector, flattice::FiniteLattice)
-
-Computes the distance between two points given the periodicity of the
-finite lattice.
-"""
-function distance(x1::AbstractVector, x2::AbstractVector, flattice::FiniteLattice)
-    return distance(x1, x2; periodicity_vectors=periodicity_vectors(flattice))
-end
-
-function distance_vector(x1::AbstractVector, x2::AbstractVector, flattice::FiniteLattice)
-    return distance_vector(x1, x2; periodicity_vectors=periodicity_vectors(flattice))
-end
-
-"""
-    distances(flattice::FiniteLattice)
-
-Computes which unique values of distances are present on the lattice
-"""
-function distances(flattice::FiniteLattice)
-    return distances(coordinates(flattice);
-                     periodicity_vectors=periodicity_vectors(flattice))
-end
-
-=#

@@ -517,6 +517,74 @@
         dists_euc = distances(sites_2d)
         @test maximum(dists_euc) >= maximum(dists)  # periodic wrapping reduces max distance
     end
-    
+
+    # ============================================================
+    # testing partially periodic boundaries - 2D square
+    # ============================================================
+    @testset "2D square lattice cylinder" begin
+        # 2D square lattice with periodicity only along x-direction
+        boundary_cyl = [4 0; 0 3]
+        flat_sq_cyl = FiniteLattice(square_lattice, boundary_cyl, [true, false])
+
+        metric_cyl = PeriodicEuclideanMetric(flat_sq_cyl)
+
+        origin = EuclideanVector([0.0, 0.0])
+        point_far_x = EuclideanVector([7.5, 0.0])  # should wrap to 0.5
+        point_far_y = EuclideanVector([0.0, 8.0])  # should not wrap
+
+        @test metric_cyl(origin, point_far_x) ≈ 0.5 atol=flat_sq_cyl.lattice.tol
+        @test metric_cyl(origin, point_far_y) ≈ 8.0 atol=flat_sq_cyl.lattice.tol
+    end
+
+    # ============================================================
+    # testing partially periodic boundaries - 3D cubic
+    # ============================================================
+    @testset "3D cubic, only t1 and t3 periodic" begin
+        # 3D cubic lattice with periodicity along first and third boundary vector, but not the second.
+        boundary = [
+            4 0 0; # t1
+            0 5 0; # t2
+            1 0 3; # t3
+        ]
+        flat_cub_t2period = FiniteLattice(cubic_lattice, boundary, [true, false, true])
+        metric = metric_cyl = PeriodicEuclideanMetric(flat_cub_t2period)
+
+        o = EuclideanVector([0.0, 0.0, 0.0])
+        far_t1 = EuclideanVector([-9.0, 0.0, 0.0])  # should wrap to (3, 0, 0) = (-1, 0, 0)
+        far_t2 = EuclideanVector([0.0, 6.0, 0.0])   # should not wrap!
+        far_t3 = EuclideanVector([-1.0, 0.0, -3.0]) # should wrap to (0, 0, 0)
+        t1t2t3 = EuclideanVector([5.0, 5.0, 3.0])   # should wrap to (0, 5, 0)
+
+        @test metric(o, far_t1) ≈ 1.0 atol=flat_cub_t2period.lattice.tol
+        @test metric(o, far_t2) ≈ 6.0 atol=flat_cub_t2period.lattice.tol
+        @test metric(o, far_t3) ≈ 0.0 atol=flat_cub_t2period.lattice.tol
+        @test metric(o, t1t2t3) ≈ 5.0 atol=flat_cub_t2period.lattice.tol
+    end
+
+    # ============================================================
+    # testing partially periodic boundaries - 3D cubic, only t3
+    # ============================================================
+    @testset "3D cubic, only t3 periodic" begin
+        # 3D cubic lattice with periodicity only along third boundary vector
+        boundary = [
+            40 0 0;
+            0 50 0;
+            1 0 30;
+        ]
+        flat_cub_t3only = FiniteLattice(cubic_lattice, boundary, [false, false, true])
+        metric = PeriodicEuclideanMetric(flat_cub_t3only)
+
+        o = EuclideanVector([0.0, 0.0, 0.0])
+        far_t1 = EuclideanVector([82.0, 0.0, 0.0])     # should not wrap
+        far_t2 = EuclideanVector([0.0, 55.0, 0.0])      # should not wrap
+        far_t3 = EuclideanVector([-1.0, 0.0, -40.0])    # should wrap to (0, 0, -10) = (1, 0, 29)
+        combined = EuclideanVector([1.0, 50.0, 30.0])  # should wrap to (0, 50, 0)
+
+        @test metric(o, far_t1) ≈ 82.0 atol=flat_cub_t3only.lattice.tol
+        @test metric(o, far_t2) ≈ 55.0 atol=flat_cub_t3only.lattice.tol
+        @test metric(o, far_t3) ≈ 10.0 atol=flat_cub_t3only.lattice.tol
+        @test metric(o, combined) ≈ 50.0 atol=flat_cub_t3only.lattice.tol
+    end
+
 
 end
