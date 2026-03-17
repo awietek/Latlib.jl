@@ -91,7 +91,8 @@ Draws:
 - `draw_periodic_flattice_shifts::Vector{Tuple{Int, Int, Int}}=nothing`: when `draw_periodic_flattice=true`, determines 
     which periodic images to draw. Each tuple corresponds to a shift along the three boundary vectors of the finite lattice.
     By default, all 6 face-sharing neighbors are drawn: `[(1,0,0),(-1,0,0),(0,1,0),(0,-1,0),(0,0,1),(0,0,-1)]`.
-"""
+- `scale_factor::Number=1.5`: controls, among other things, the scale of labels
+    """
 function plot_3d(flattice::FiniteLattice;
     annotate_sites::Bool=false,
     annotate_sites_zero_based::Bool=true,
@@ -101,13 +102,14 @@ function plot_3d(flattice::FiniteLattice;
     show_neighbors::Bool=true,
     draw_periodic_flattice::Bool=false,
     draw_periodic_flattice_shifts::Union{Nothing, Vector{Tuple{Int, Int, Int}}}=nothing,
+    scale_factor::Number=1.5,
     )
 
     if dim(flattice) != 3
         error(@sprintf "plot_3d only supports 3D lattices, but got dimension %d" dim(flattice))
     end
 
-    GLMakie.activate!(ssao=true, fxaa=true, scalefactor=1.5)
+    GLMakie.activate!(ssao=true, fxaa=true, scalefactor=scale_factor)
 
     lat = flattice.lattice
     As = lattice_vecs(flattice)
@@ -382,7 +384,7 @@ end
 
 When `extend_flattice_cell_edges > 0`, each edge is drawn longer than the actual
 parallelepiped by that fraction of its length in both directions,
-providing a visual guide for translating the cell."""
+giving a visual guide for translating the cell."""
 function _draw_parallelepiped!(ax, origin, v1, v2, v3;
     color=(:blue, 0.1), linecolor=:blue, linewidth=2,
     extend_flattice_cell_edges::Real=0.0)

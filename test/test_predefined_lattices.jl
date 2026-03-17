@@ -139,13 +139,13 @@ using LinearAlgebra
                 [3.0, 2.0, 3.0],
                 [2.0, 3.0, 1.0],
                 [6.0, 5.0, 1.0],
-                [5.0, 6.0, 3.0]
+                [5.0, 6.0, 3.0],
             ]"
             @test replace(coord_string, r"\s+" => "") == replace(coord_string_ref, r"\s+" => "") # compares the two strings after removing all whitespace or line breaks
 
             # check TOML interaction string
-            opsum_16 = neighbor_interaction("SdotS", "J", flat_16)
-            interaction_string = toml_interactions(opsum_16; zero_based=true)
+            opsum_16_HB = neighbor_interaction("SdotS", "J", flat_16)
+            interaction_string = toml_interactions(opsum_16_HB; zero_based=true)
             interaction_string_ref = "Interactions = [
                 ['J', 'SdotS', 0, 4],
                 ['J', 'SdotS', 0, 14],
@@ -170,7 +170,43 @@ using LinearAlgebra
                 ['J', 'SdotS', 8, 12],
                 ['J', 'SdotS', 9, 13],
                 ['J', 'SdotS', 10, 14],
-                ['J', 'SdotS', 11, 15]
+                ['J', 'SdotS', 11, 15],
+                ]"
+            @test replace(interaction_string, r"\s+" => "") == replace(interaction_string_ref, r"\s+" => "")
+
+            # check Kitaev interaction string
+            opsum_16_kitaev = lattice_interaction("SxSx", "KX", flat_16, 1, 2, [0, 0, 0])
+            opsum_16_kitaev += lattice_interaction("SxSx", "KX", flat_16, 3, 4, [0, 0, 0])
+            opsum_16_kitaev += lattice_interaction("SySy", "KY", flat_16, 2, 3, [0, 0, 0])
+            opsum_16_kitaev += lattice_interaction("SySy", "KY", flat_16, 4, 1, [0, 1, 0])
+            opsum_16_kitaev += lattice_interaction("SzSz", "KZ", flat_16, 3, 2, [0, 0, 1])
+            opsum_16_kitaev += lattice_interaction("SzSz", "KZ", flat_16, 4, 1, [1, 0, 0])
+            interaction_string = toml_interactions(opsum_16_kitaev; zero_based=true)
+            interaction_string_ref = "Interactions = [
+                ['KX', 'SxSx', 0, 4],
+                ['KX', 'SxSx', 1, 5],
+                ['KX', 'SxSx', 2, 6],
+                ['KX', 'SxSx', 3, 7],
+                ['KX', 'SxSx', 8, 12],
+                ['KX', 'SxSx', 9, 13],
+                ['KX', 'SxSx', 10, 14],
+                ['KX', 'SxSx', 11, 15],
+                ['KY', 'SySy', 4, 8],
+                ['KY', 'SySy', 5, 9],
+                ['KY', 'SySy', 6, 10],
+                ['KY', 'SySy', 7, 11],
+                ['KY', 'SySy', 2, 12],
+                ['KY', 'SySy', 3, 13],
+                ['KY', 'SySy', 0, 14],
+                ['KY', 'SySy', 1, 15],
+                ['KZ', 'SzSz', 5, 8],
+                ['KZ', 'SzSz', 4, 9],
+                ['KZ', 'SzSz', 7, 10],
+                ['KZ', 'SzSz', 6, 11],
+                ['KZ', 'SzSz', 3, 12],
+                ['KZ', 'SzSz', 2, 13],
+                ['KZ', 'SzSz', 1, 14],
+                ['KZ', 'SzSz', 0, 15],
                 ]"
             @test replace(interaction_string, r"\s+" => "") == replace(interaction_string_ref, r"\s+" => "")
         end
@@ -224,7 +260,7 @@ using LinearAlgebra
                 [7.0, 4.0, 3.0],
                 [2.0, 3.0, 1.0],
                 [6.0, 5.0, 1.0],
-                [5.0, 6.0, 3.0]
+                [5.0, 6.0, 3.0],
                 ]"
             @test replace(coord_string, r"\s+" => "") == replace(coord_string_ref, r"\s+" => "") # compares the two strings after removing all whitespace or line breaks
 
@@ -279,7 +315,7 @@ using LinearAlgebra
                 ['J', 'SdotS', 20, 28],
                 ['J', 'SdotS', 21, 29],
                 ['J', 'SdotS', 22, 30],
-                ['J', 'SdotS', 23, 31]
+                ['J', 'SdotS', 23, 31],
                 ]"
             @test replace(interaction_string, r"\s+" => "") == replace(interaction_string_ref, r"\s+" => "")
         end

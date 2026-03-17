@@ -135,7 +135,7 @@ function toml_coordinates(flattice::FiniteLattice; out_str::String="") :: String
     out_str *= "Coordinates = [\n"
     for (i, v) in enumerate(euc_coords)
         rounded = [round(x; digits=digits) for x in v.coords]
-        trailing = i < length(euc_coords) ? "," : ""
+        trailing = ","
         out_str *= "  [" * join(rounded, ", ") * "]" * trailing * "\n"
     end
     out_str *= "]\n"
@@ -154,7 +154,7 @@ function toml_interactions(opsum::OpSum; zero_based::Bool=false, out_str::String
     for (i, op) in enumerate(opsum.ops)
         s1 = op.sites[1] - offset
         s2 = op.sites[2] - offset
-        trailing = i < length(opsum.ops) ? "," : ""
+        trailing = ","
         out_str *= "  ['" * op.cpl * "', '" * op.type * "', " * string(s1) * ", " * string(s2) * "]" * trailing * "\n"
     end
     out_str *= "]\n"

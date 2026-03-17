@@ -2,10 +2,10 @@ using Revise
 using Latlib
 
 # pick number of sites (atoms) in finite cluster (e.g. 16 or 32)
-N = 32
+N = 16
 
 # for most N, there are multiple finite clusters, pick a "version" here starting form 1
-ver = 1 
+ver = 1
 
 fl_vecs = nothing
 
@@ -25,12 +25,40 @@ end
 #                   N = 32 clusters               
 # -------------------------------------------------
 if (N, ver) == (32, 1)
+    # similar to Alex's TOML
     fl_vecs = [
         LatticeVector(hyperhoneycomb, [-1, 1, 1]), # t1
         LatticeVector(hyperhoneycomb, [1, 1, -1]), # t2
         LatticeVector(hyperhoneycomb, [-2, 1, -2]),# t3
     ]
+elseif (N, ver) == (32, 2)
+    # two copies of 16v1 stacked in front of each other
+    fl_vecs = [
+        LatticeVector(hyperhoneycomb, [-1, 1, 1]), # t1
+        LatticeVector(hyperhoneycomb, [1, 1, -1]), # t2
+        LatticeVector(hyperhoneycomb, [-2, 2, -2]),# t3
+    ]
+elseif (N, ver) == (32, 3)
+    # two copies of 16v1 stacked on top of each other
+    fl_vecs = [
+        LatticeVector(hyperhoneycomb, [-2, 2, 2]), # t1
+        LatticeVector(hyperhoneycomb, [1, 1, -1]), # t2
+        LatticeVector(hyperhoneycomb, [-1, 1, -1]),# t3
+    ]
+elseif (N, ver) == (32, 4)
+    # two copies of 16v1 stacked side by side
+    fl_vecs = [
+        LatticeVector(hyperhoneycomb, [-1, 1, 1]), # t1
+        LatticeVector(hyperhoneycomb, [2, 2, -2]), # t2
+        LatticeVector(hyperhoneycomb, [-1, 1, -1]),# t3
+    ]
 end
+
+for (i, v) in enumerate(fl_vecs)
+    println("t$i = ", to_euclidean_basis(v))
+end
+
+
 
 # throw error message for undefined N and version
 if isnothing(fl_vecs)
@@ -41,16 +69,18 @@ end
 #              FINITE LATTICE & PLOT                
 # -------------------------------------------------
 fl = FiniteLattice(fl_vecs, true)
+
 #=
 plot_3d(fl; 
     show_neighbors=true,
-    show_unit_cell=true,
+    #show_unit_cell=true,
     annotate_sites=true,
     annotate_sites_zero_based=true,
-    draw_periodic_flattice=true,
-    draw_periodic_flattice_shifts=[(1,0,0),(0,1,0), (1,1,0), (0,0,1), (1,0,1), (0,1,1), (1, 1, 1)]
+    #draw_periodic_flattice=true,
+    #draw_periodic_flattice_shifts=[(1,0,0),(0,1,0), (1,1,0), (0,0,1), (1,0,1), (0,1,1), (1, 1, 1)],
     )
 =#
+
 
 # -------------------------------------------------
 #                   INTERACTIONS                
@@ -67,17 +97,19 @@ opsum += lattice_interaction("SzSz", "KZ", fl, 3, 2, [0, 0, 1])
 opsum += lattice_interaction("SzSz", "KZ", fl, 4, 1, [1, 0, 0]) # [1, 0, 0] is Alex's convention, others use [0, 1, 0] here
 
 # write to TOML
-#write_toml(fl, opsum, (@__DIR__) * "/hyperhoneycomb-N-$N-ver-$ver.toml"; zero_based=true)
+write_toml(fl, opsum, (@__DIR__) * "/hyperhoneycomb-N-$N-ver-$ver.toml"; zero_based=true)
 
 # draw opsum into lattice
+
+
 plot_3d(fl, opsum; 
-    # keywords for plot_3d(fl, opsum)
+    # ----- keywords for plot_3d(fl, opsum)
     cpl_dict = Dict("KX" => :blue, "KY" => :red, "KZ" => :green),
-    # keywords for plot_3d(fl)
+    # ----- keywords for plot_3d(fl)
     #show_unit_cell=true,
     annotate_sites=true,
     annotate_sites_zero_based=true,
-    #draw_periodic_flattice=true,
-    #draw_periodic_flattice_shifts=[(1,0,0),(0,1,0), (1,1,0), (0,0,1), (1,0,1), (0,1,1), (1, 1, 1)],
+    draw_periodic_flattice=true,
+    draw_periodic_flattice_shifts=[(1,0,0),(0,1,0), (1,1,0), (0,0,1), (1,0,1), (0,1,1), (1, 1, 1)],
+    scale_factor=1.0,
     )
-
