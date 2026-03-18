@@ -2,7 +2,7 @@ using Revise
 using Latlib
 
 # pick number of sites (atoms) in finite cluster (e.g. 16 or 32)
-N = 16
+N = 32
 
 # for most N, there are multiple finite clusters, pick a "version" here starting form 1
 ver = 1
@@ -24,14 +24,8 @@ end
 # -------------------------------------------------
 #                   N = 32 clusters               
 # -------------------------------------------------
-if (N, ver) == (32, 1)
-    # similar to Alex's TOML
-    fl_vecs = [
-        LatticeVector(hyperhoneycomb, [-1, 1, 1]), # t1
-        LatticeVector(hyperhoneycomb, [1, 1, -1]), # t2
-        LatticeVector(hyperhoneycomb, [-2, 1, -2]),# t3
-    ]
-elseif (N, ver) == (32, 2)
+
+if (N, ver) == (32, 2) # starts with 2 for "historic" reasons
     # two copies of 16v1 stacked in front of each other
     fl_vecs = [
         LatticeVector(hyperhoneycomb, [-1, 1, 1]), # t1

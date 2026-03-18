@@ -217,11 +217,11 @@ using LinearAlgebra
 
         @testset "N=32 cluster" begin
 
-            # create N = 32 finite lattice with periodic boundaries
+            # create N = 32 finite lattice with periodic boundaries (N=32, ver=2 in hyperhoneycomb.jl example)
             flat_32_vecs = [
                 LatticeVector(hyperhoneycomb, [-1, 1, 1]),
                 LatticeVector(hyperhoneycomb, [1, 1, -1]),
-                LatticeVector(hyperhoneycomb, [-2, 1, -2]),
+                LatticeVector(hyperhoneycomb, [-2, 2, -2]),
             ]
             flat_32 = FiniteLattice(flat_32_vecs, true)
             @test dim(flat_32) == 3
@@ -269,12 +269,12 @@ using LinearAlgebra
             @test replace(coord_string, r"\s+" => "") == replace(coord_string_ref, r"\s+" => "") # compares the two strings after removing all whitespace or line breaks
 
             # check TOML interaction string
-            opsum_32 = neighbor_interaction("SdotS", "J", flat_32)
-            interaction_string = toml_interactions(opsum_32; zero_based=true)
+            opsum_32_HB = neighbor_interaction("SdotS", "J", flat_32)
+            interaction_string = toml_interactions(opsum_32_HB; zero_based=true)
             interaction_string_ref = "Interactions = [
                 ['J', 'SdotS', 0, 8],
                 ['J', 'SdotS', 0, 27],
-                ['J', 'SdotS', 0, 29],
+                ['J', 'SdotS', 0, 31],
                 ['J', 'SdotS', 1, 9],
                 ['J', 'SdotS', 1, 27],
                 ['J', 'SdotS', 1, 28],
@@ -283,7 +283,7 @@ using LinearAlgebra
                 ['J', 'SdotS', 2, 30],
                 ['J', 'SdotS', 3, 11],
                 ['J', 'SdotS', 3, 24],
-                ['J', 'SdotS', 3, 31],
+                ['J', 'SdotS', 3, 29],
                 ['J', 'SdotS', 4, 12],
                 ['J', 'SdotS', 4, 24],
                 ['J', 'SdotS', 4, 25],
@@ -297,13 +297,13 @@ using LinearAlgebra
                 ['J', 'SdotS', 7, 26],
                 ['J', 'SdotS', 7, 29],
                 ['J', 'SdotS', 8, 16],
-                ['J', 'SdotS', 8, 23],
+                ['J', 'SdotS', 8, 21],
                 ['J', 'SdotS', 9, 16],
                 ['J', 'SdotS', 9, 17],
                 ['J', 'SdotS', 10, 17],
                 ['J', 'SdotS', 10, 18],
                 ['J', 'SdotS', 11, 19],
-                ['J', 'SdotS', 11, 21],
+                ['J', 'SdotS', 11, 23],
                 ['J', 'SdotS', 12, 19],
                 ['J', 'SdotS', 12, 20],
                 ['J', 'SdotS', 13, 18],
@@ -322,8 +322,68 @@ using LinearAlgebra
                 ['J', 'SdotS', 23, 31],
                 ]"
             @test replace(interaction_string, r"\s+" => "") == replace(interaction_string_ref, r"\s+" => "")
-        end
+        
 
+            # check Kitaev interaction string
+            opsum_32_kitaev = lattice_interaction("SxSx", "KX", flat_32, 1, 2, [0, 0, 0])
+            opsum_32_kitaev += lattice_interaction("SxSx", "KX", flat_32, 3, 4, [0, 0, 0])
+            opsum_32_kitaev += lattice_interaction("SySy", "KY", flat_32, 2, 3, [0, 0, 0])
+            opsum_32_kitaev += lattice_interaction("SySy", "KY", flat_32, 4, 1, [0, 1, 0])
+            opsum_32_kitaev += lattice_interaction("SzSz", "KZ", flat_32, 3, 2, [0, 0, 1])
+            opsum_32_kitaev += lattice_interaction("SzSz", "KZ", flat_32, 4, 1, [1, 0, 0])
+            interaction_string = toml_interactions(opsum_32_kitaev; zero_based=true)
+            interaction_string_ref = "Interactions = [
+                ['KX', 'SxSx', 0, 8],
+                ['KX', 'SxSx', 1, 9],
+                ['KX', 'SxSx', 2, 10],
+                ['KX', 'SxSx', 3, 11],
+                ['KX', 'SxSx', 4, 12],
+                ['KX', 'SxSx', 5, 13],
+                ['KX', 'SxSx', 6, 14],
+                ['KX', 'SxSx', 7, 15],
+                ['KX', 'SxSx', 16, 24],
+                ['KX', 'SxSx', 17, 25],
+                ['KX', 'SxSx', 18, 26],
+                ['KX', 'SxSx', 19, 27],
+                ['KX', 'SxSx', 20, 28],
+                ['KX', 'SxSx', 21, 29],
+                ['KX', 'SxSx', 22, 30],
+                ['KX', 'SxSx', 23, 31],
+                ['KY', 'SySy', 8, 16],
+                ['KY', 'SySy', 9, 17],
+                ['KY', 'SySy', 10, 18],
+                ['KY', 'SySy', 11, 19],
+                ['KY', 'SySy', 12, 20],
+                ['KY', 'SySy', 13, 21],
+                ['KY', 'SySy', 14, 22],
+                ['KY', 'SySy', 15, 23],
+                ['KY', 'SySy', 3, 24],
+                ['KY', 'SySy', 4, 25],
+                ['KY', 'SySy', 6, 26],
+                ['KY', 'SySy', 0, 27],
+                ['KY', 'SySy', 1, 28],
+                ['KY', 'SySy', 7, 29],
+                ['KY', 'SySy', 2, 30],
+                ['KY', 'SySy', 5, 31],
+                ['KZ', 'SzSz', 9, 16],
+                ['KZ', 'SzSz', 10, 17],
+                ['KZ', 'SzSz', 13, 18],
+                ['KZ', 'SzSz', 12, 19],
+                ['KZ', 'SzSz', 14, 20],
+                ['KZ', 'SzSz', 8, 21],
+                ['KZ', 'SzSz', 15, 22],
+                ['KZ', 'SzSz', 11, 23],
+                ['KZ', 'SzSz', 4, 24],
+                ['KZ', 'SzSz', 6, 25],
+                ['KZ', 'SzSz', 7, 26],
+                ['KZ', 'SzSz', 1, 27],
+                ['KZ', 'SzSz', 2, 28],
+                ['KZ', 'SzSz', 3, 29],
+                ['KZ', 'SzSz', 5, 30],
+                ['KZ', 'SzSz', 0, 31],
+                ]"
+            @test replace(interaction_string, r"\s+" => "") == replace(interaction_string_ref, r"\s+" => "")
+        end
     end
 
     # ================================================================
