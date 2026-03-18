@@ -3,22 +3,44 @@ using TOML
 @doc raw"""
     Op
     
-Defines the information regarding an operator ``\mathbf{O}``.
+Represents an many-body quantum operator ``\mathbf{O}``.
 
 # Arguments
-- `type::AbstractString`: String specifing the type of operator: "HB", "Cup", etc ...
-- `coupling::Union{AbstractString,Number}`: String or number specifying the coupling constant;
-- `sites::Vector{Int64}`: Vector specifing the sites in each the operator acts on the Hilbert Space;
+- `type::String`: String specifing the type of operator: "HB", "Cup", etc ...
+- `cpl::Union{String, Number}`: String or number specifying the coupling constant;
+- `sites::Vector{Int64}`: Vector specifing the sites on which the operator acts.
 """
 struct Op
-    type::AbstractString
-    coupling::Union{AbstractString,Number}
+    type::String
+    cpl::Union{String, Number}
     sites::Vector{Int64}
+
+    # standard constructor
+    function Op(type::String, cpl::Union{String, Number}, sites::Vector{Int64})
+        # check that sites are not empty
+        if length(sites) == 0
+            error("Vector of sites specified in Op() is empty.")
+        end
+
+        # check that sites does not contain duplicates
+        if length(unique(sites)) != length(sites)
+            error("The vector of sites in the constructor of Op must not contain duplicates.")
+        end
+
+        # check that sites are positive integers
+        for s in sites
+            if s < 1
+                error(@sprintf "The vector of sites in the constructor of Op must contain positive integers (got %s)" s)
+            end
+        end
+
+        new(type, cpl, sites)
+    end
 end
 
 # Methods of for the struct Op:
 function Base.:(==)(b1::Op, b2::Op)
-    return b1.type == b2.type && b1.coupling == b2.coupling && b1.sites == b2.sites
+    return b1.type == b2.type && b1.cpl == b2.cpl && b1.sites == b2.sites
 end
 
 function Base.isequal(b1::Op, b2::Op)
@@ -26,20 +48,20 @@ function Base.isequal(b1::Op, b2::Op)
 end
 
 function Base.hash(b::Op, h::UInt64)
-    return hash(b.type, h) + hash(b.coupling, h) + hash(b.sites, h)
+    return hash(b.type, h) + hash(b.cpl, h) + hash(b.sites, h)
 end
 
 function Base.isless(b1::Op, b2::Op)
     if b1.type < b2.type
         return true
-    elseif b1.coupling < b2.coupling
+    elseif b1.cpl < b2.cpl
         return true
     else
         s1 = b1.sites
         s2 = b2.sites
-        sort!(s1)
-        sort!(s2)
-        if s1 < s2
+        s1_sort = sort(s1)
+        s2_sort = sort(s2)
+        if s1_sort < s2_sort
             return true
         else
             return false
@@ -64,161 +86,189 @@ One can use the `+=` operator to add operators to the OpSum:
 """
 mutable struct OpSum
     ops::Vector{Op}
+
+    # standard constructor
+    function OpSum(ops::Vector{Op})
+        new(ops)
+    end
+
+    # constructor with empty vector of operators
+    function OpSum()
+        new(Op[])
+    end
+
 end
 
-
-function OpSum()
-    OpSum(Op[])
+# define OpSum += Op
+function Base.:(+)(sum::OpSum, op::Op)
+    if length(op.sites) > 0
+        return OpSum(push!(sum.ops, op))
+    else
+        error("Cannot add an operator `Op` with empty vector of sites to `OpSum`.")
+    end
 end
 
-#Overload the += operator for OpSum
-function Base.:(+)(sumOp::OpSum, op::Op)
-    return OpSum(push!(sumOp.ops, op))
+# define OpSum += OpSum
+function Base.:(+)(sum1::OpSum, sum2::OpSum)
+    return OpSum(push!(sum1.ops, sum2.ops...))
 end
 
-function Base.:(+)(sumOp1::OpSum, sumOp2::OpSum)
-    return OpSum(push!(sumOp1.ops, sumOp2.ops...))
-end
-
-
-
+# remove duplicates and sort the operators in the OpSum
 function unique_ops!(opsum::OpSum)
     opsum.ops = sort(unique(opsum.ops))
 end
 
+# equality check for two OpSums
+function Base.:(==)(opsum1::OpSum, opsum2::OpSum)
+    unique_ops!(opsum1)
+    unique_ops!(opsum2)
+    return opsum1.ops == opsum2.ops
+end
+
 
 @doc raw"""
-Returns the OpSum() for corresponding to a two-body operator acting between two neighboring sites.
+    neighbor_interaction(type::String, cpl::Union{String, Number}, flattice::FiniteLattice; num_distance::Int64=1)
+
+Constructs the `OpSum` for a two-body interaction of k-th
+nearest neighbors on a finite lattice where k = num_distance.
 
 # Arguments
-- `type::AbstractString`: String specifing the type of operator: "HB", "Cup", etc ...
-- `coupling::AbstractString`: String or number specifying the coupling constant;
+- `type::String`: String specifing the type of operator: "HB", "Cup", etc ...;
+- `cpl::Union{String, Number}`: String or number specifying the coupling constant;
 - `lattice::FiniteLattice`: The lattice on which the operator acts;
-- `num_distance::Integer=1`: at which distance neighbors are considered, 1 -> nearest neighbor, 2 -> second nearest neighbor, etc.
+- `num_distance::Int64=1`: Distance at which neighbors are considered, 1 -> nearest neighbor, 2 -> second nearest neighbor, etc.
 """
-function neighbor_bonds(type::AbstractString, coupling::AbstractString,
-    lattice::FiniteLattice; num_distance::Integer=1)
-    nbors = neighbors(lattice; num_distance)
-    # Create an OpSum:
-    OpSumngb = OpSum()
-    for nbor in eachcol(nbors)
-        OpSumngb += Op(type, coupling, [nbor[1], nbor[2]])
+function neighbor_interaction(type::String,
+                        cpl::Union{String, Number},
+                        flattice::FiniteLattice;
+                        num_distance::Int64=1)
+    if num_distance < 1
+        error("Two-body interaction defined by neighbor_interaction must be called with num_distance >= 1, i.e., we do not consider self-interactions.")
     end
-    unique_ops!(OpSumngb)
 
-    return OpSumngb
+    nbs = neighbors(flattice; num_distance) # returns Vector{Tuple{Int64, Int64}} of index pairs (i, j) with i<j
+    # Create an OpSum:
+    ops = OpSum()
+    for (i, j) in nbs
+        ops += Op(type, cpl, [i, j])
+    end
+    unique_ops!(ops)
+
+    return ops
 end
 
 @doc raw"""
-Returns the OpSum() for the corresponding two-body operator acting on the sites specified by the vectors b1 and b2.
+    lattice_interaction(type::String, cpl::Union{String, Number}, flattice::FiniteLattice, atom1::Int64, atom2::Int64, cell2::Union{Vector{Int64}, LatticeVector})
 
-    The vectors b1 and b2 are given in the following way:
-    - b_[1] = index of the atom in the unit cell (using the same order as given to the lattice instance)
-    - b_[2] = Coordinate of the unit cell along the first Bravais vector
-    - b_[3] = Coordinate of the unit cell along the second Bravais vector
-    - b_[4] = Coordinate of the unit cell along the third Bravais vector
-    - ...
+Returns the OpSum() for the corresponding two-body operator acting
+between two sites that may (or may not) be in different Bravais cells.
+The interaction is repeated for all Bravais cells of the finite lattice!
 
 # Arguments
-- `type::AbstractString`: String specifing the type of operator: "HB", "Cup", etc ...
-- `coupling::AbstractString`: String or number specifying the coupling constant;
-- `lattice::FiniteLattice`: The lattice on which the operator acts;
-- `b1::Vector{<:Integer},`: Vector of integers specifying the first site;
-- `b2::Vector{<:Integer},`: Vector of integers specifying the second site;
+- `type::String`: String specifing operator type: "HB", "Cup", etc ...;
+- `cpl::Union{String, Number}`: String or number specifying the coupling constant.;
+- `flattice::FiniteLattice`: The lattice on which the operator acts.;
+- 'atom1::Int64': Index (as defined by flattice.lattice.positions) of the first atom taking part in the interaction;
+- 'atom2::Int64': Index (as defined by flattice.lattice.positions) of the second atom taking part in the interaction;
+- 'cell2::Union{Vector{Int64}, LatticeVector}': Bravais cell of atom2 (atom1 is always assumed in the origin Bravais cell).
+
+# Returns
+- `OpSum`: OpSum() containing the corresponding two-body operator acting between the specified sites in all Bravais cells of the finite lattice. The individual operators assume the same labelling of sites as in flattice.lattice.positions.
 """
-function lattice_bonds(type::AbstractString, coupling::AbstractString, Flattice::FiniteLattice, b1::Vector{<:Integer}, b2::Vector{<:Integer})
+function lattice_interaction(type::String,
+                       cpl::Union{String, Number},
+                       flattice::FiniteLattice,
+                       atom1::Int64,
+                       atom2::Int64,
+                       cell2::Union{Vector{Int64}, LatticeVector})
 
-    bravais_coords = bravais_coordinates(Flattice)
-    coords = coordinates(Flattice)
-    period = Flattice.periodicity
-    periodicvec = periodicity_vectors(Flattice)
+    # assume that cell2 is of `LatticeVector` type`
+    if isa(cell2, Vector{Int64})
+        cell2 = LatticeVector(flattice.lattice, cell2)
+    end
 
-    if period == [0 0]
+    # check if cell2 is a valid Bravais cell
+    if !in_lattice(cell2)
+        error("Specified value of cell2 is not a valid Bravais vector of the lattice. Please specify a vector of integers of a `LatticeVector` with integer coefficients.")
+    end
+    lat = flattice.lattice
+    if !( cell2.lattice == lat)
+        error("Specified `LatticeVector` for cell2 in lattice_bonds() must have the same underlying lattice instance as the finite lattice.")
+    end
+    lat_dim = dim(flattice)
+
+    # check if atom1 and atom2 are valid
+    Natoms = natoms(flattice)
+    atom_vec = [atom1, atom2]
+    for a in atom_vec
+        if a < 1 || a > Natoms
+            error(@sprintf "Specified atom index %s is out of bounds. Must be between 1 and %s according to specified `FiniteLattice`." a Natoms)
+        end
+    end
+
+    # get Bravais cells (as Vector{LatticeVector})
+    brav_cells = bravais_cells(flattice)
+
+    # get Euclidean coordinates (as Vector{EuclideanVector}) of all atoms in each Bravais cell 
+    atom_coords = atoms(flattice)
+    
+    # take care of periodicity of finite lattice
+    period = periodicity(flattice)
+
+    # define metric and distance function
+    metric = nothing
+    if all(period .== false)
         metric = EuclideanMetric()
     else
-        metric = PeriodicMetric(periodicvec)
+        metric = PeriodicEuclideanMetric(flattice)
     end
-
     dist(x, y) = metric(x, y)
 
-    dim = dimension(Flattice)
+    # construct OpSum()
+    a1_lvec = get_position(flattice, atom1)
+    a2_lvec = get_position(flattice, atom2) + cell2
+    a1_evec = to_euclidean_basis(a1_lvec)
+    a2_evec = to_euclidean_basis(a2_lvec)
+    ops = OpSum()
+    for cell in brav_cells
 
-    if length(b1) != dim + 1
-        error("Argument b1 has wrong length. Must be dim( of lattice) + 1!")
-    elseif length(b2) != dim + 1
-        error("Argument b2 has wrong length. Must be dim( of lattice) + 1!")
-    end
+        cell_evec = to_euclidean_basis(cell)
 
-    lattice = Flattice.lattice
+        # get coordinates of atom1 and atom2 in terms of lattice basis
+        a1_evec_cell = a1_evec + cell_evec
+        a2_evec_cell = a2_evec + cell_evec
 
-    OpSumbonds = OpSum()
-    for bcoord in eachcol(bravais_coords)
-
-        p1 = bcoord + lattice.vectors * lattice.positions[:, b1[1]] + lattice.vectors * b1[2:end]
-        p2 = bcoord + lattice.vectors * lattice.positions[:, b2[1]] + lattice.vectors * b2[2:end]
-
-        @show bcoord, p1, p2
-
-        # Check whether the points are in lattice
-        s1 = 0
-        for (idx, c) in enumerate(eachcol(coords))
-            if dist(p1, c) < 1e-6
-                s1 = idx
+        # identify these coordinates with atom indices
+        site1 = nothing
+        for (idx, atom_evec) in enumerate(atoms(flattice)) # gives Vector{EuclideanVector}
+            if dist(a1_evec_cell, atom_evec) < flattice.lattice.tol
+                site1 = idx
                 break
             end
         end
+        if isnothing(site1)
+            continue
+            #error(@sprintf "Could not match atom1 %s in cell %s to any of the vectors in flattice.lattice.positions." a1_lvec cell)
+        end
 
-        s2 = 0
-        for (idx, c) in enumerate(eachcol(coords))
-            if dist(p2, c) < 1e-6
-                s2 = idx
+        site2 = nothing
+        for (idx, atom_evec) in enumerate(atoms(flattice)) # gives Vector{EuclideanVector}
+            if dist(a2_evec_cell, atom_evec) < flattice.lattice.tol
+                site2 = idx
                 break
             end
         end
-
-        # append if both are found
-        if s1 != 0 && s2 != 0
-            ss1 = min(s1, s2)
-            ss2 = max(s1, s2)
-            OpSumbonds += Op(type, coupling, [ss1, ss2])
+        if isnothing(site2)
+            continue
+            #error(@sprintf "Could not match atom2 %s in cell %s to any of the vectors in flattice.lattice.positions." a2_lvec cell)
         end
+
+        # append tuples (i, j) where i < j
+        v1 = min(site1, site2)
+        v2 = max(site1, site2)
+        ops += Op(type, cpl, [v1, v2])
     end
 
-    unique_ops!(OpSumbonds)
-    return OpSumbonds
+    return ops
 end
 
-
-@doc raw"""
-Writes into a TOML file all the operators in the OpSum.
-    The file is written in the following format:
-
-```TOML
-    Interactions = [
-        ["HB", "J1", [1, 2]],
-        ["HB", "J2", [2, 3]],
-        ...
-    ]
-```
-            
-# Arguments
-- `opsum::OpSum`: OpSum object containing the operators;
-- `filename::String`: Name of the file to write to;
-# Keyword arguments
-- `index_zero::Bool=false`: If true, the indices of the sites are written starting from 0 instead of 1;
-"""
-function write_opsum_to_toml!(opsum::OpSum, filename::String; index_zero::Bool=false)
-
-    open(filename, "w") do io
-        println(io, "Interactions = [")
-        for (i, op) in enumerate(opsum.ops)
-            if index_zero == true
-                @show op.sites .- 1,
-                println(io, "[", " \"$(op.type)\"  ,  ", " \"$(op.coupling)\"  ,  ", op.sites .- 1, " ],")
-            else
-                println(io, "[", " \"$(op.type)\"  ,  ", " \"$(op.coupling)\"  ,  ", op.sites, " ],")
-            end
-        end
-        println(io, "]")
-    end
-end
