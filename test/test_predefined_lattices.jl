@@ -210,16 +210,8 @@ using LinearAlgebra
                 ]"
             @test replace(interaction_string, r"\s+" => "") == replace(interaction_string_ref, r"\s+" => "")
             # check if the interaction string is the same as the one obtained from reading the TOML file in the example
-            println("output of @__DIR__: ", @__DIR__)
-            toml_opsum_16 = read_toml_interaction(joinpath(@__DIR__, "..", "examples/Hyperhoneycomb/hyperhoneycomb-N-16-ver-1.toml"); zero_based=true)
             
-            for (i, op) in enumerate((opsum_16_HB + opsum_16_kitaev).ops)
-                println("op $i: ", op)
-            end
-            for (i, op) in enumerate(toml_opsum_16.ops)
-                println("toml op $i: ", op)
-            end
-            
+            toml_opsum_16 = read_toml_interaction(joinpath(@__DIR__, "..", "examples/Hyperhoneycomb/hyperhoneycomb-N-16-ver-1.toml"); zero_based=true)            
             @test (opsum_16_HB + opsum_16_kitaev) == toml_opsum_16
         end
 
@@ -341,10 +333,10 @@ using LinearAlgebra
         L = 6
         W = 4
         boundary = [L÷2 0; 0 W÷2]
-        fl = FiniteLattice(shastry_sutherland, boundary, [false, true], order_xfirst)
+        fl = FiniteLattice(shastry_sutherland, boundary, [false, true]; atom_order=order_xy)
         
         # check if coordinates match
-        coordinate_str = toml_coordinates(fl, "placeholder"; zero_based=false)
+        coordinate_str = toml_coordinates(fl)
         coordinate_str_expected = "Coordinates = [
             [0.0, 0.0],
             [0.0, 0.5],
@@ -380,7 +372,7 @@ using LinearAlgebra
         H += lattice_interaction("SdotS", "Jd", fl, 1, 4, [0, 0])
         # Jd dimer bond 2: atom 3 (origin cell) to atom 2 (cell offset [1,-1])
         H += lattice_interaction("SdotS", "Jd", fl, 3, 2, [1, -1])
-        interaction_str = toml_interactions(fl, H, "placeholder"; zero_based=false)
+        interaction_str = toml_interactions(H; zero_based=false)
         interaction_str_expected = "Interactions = [
             ['J', 'SdotS', 1, 2],
             ['J', 'SdotS', 1, 4],

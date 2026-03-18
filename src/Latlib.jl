@@ -27,7 +27,9 @@ export Lattice,
 
 
 include("lattice/orders.jl")
-export order_xfirst
+export order_xy,
+        order_yx,
+        order_xyz
 
 
 include("lattice/finite_lattice.jl")

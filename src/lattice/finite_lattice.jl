@@ -15,18 +15,29 @@ multiples of the lattice vectors. The cartesian boundary box vectors
 
 # Arguments
 - `lattice::Lattice`: The underlying (infinite) lattice geometry.
-- `boundary::Matrix{Int64}`: ``D \times D`` integer matrix whose rows define the boundary box vectors in terms of the basis of the lattice.
+- `boundary::Matrix{Int64}`: ``D \times D`` integer matrix whose rows define the
+                             boundary box vectors in terms of the basis of the lattice.
 - `periodicity::Vector{Bool}`: Vector defining which boundary direction is periodic.
-- `order`: Functions determining how sites are ordered. 
+- `bravais_order`: Determines order in which Bravais coordinates inside the finite
+                   lattice are returned by `bravais_cells`. By default, the order is
+                   determined by the `isless`, i.e., the first coordinate is sorted first,
+                   then the second, etc. Users can provide a function with signature
+                   `order(a::Vector{Number}, b::Vector{Number}) -> Bool` returning true
+                   if `a` should appear before `b`.
+- `atom_order`: Determines order in which atom coordinates inside the finite lattice are returned
+                by `atoms`. This keyword behaves just as `bravais_order`, with the difference that
+                the default behavior places identical atoms in different unit cells next to each other,
+                the order within these groups being determined by `bravais_order`.
 """
 struct FiniteLattice
     lattice::Lattice
     boundary::Matrix{Int64}
     periodicity::Vector{Bool}
     tol::Float64
-    order
+    bravais_order::Union{Nothing, Function}
+    atom_order::Union{Nothing, Function}
 
-    function FiniteLattice(lattice::Lattice, boundary::Matrix{Int64}, periodicity::Vector{Bool}, order=nothing)
+    function FiniteLattice(lattice::Lattice, boundary::Matrix{Int64}, periodicity::Vector{Bool}; bravais_order=nothing, atom_order=nothing)
         lat_dim = lattice.dim
 
         # check if boundary is D x D matrix
@@ -43,21 +54,20 @@ struct FiniteLattice
         max_boundary_vec_length = maximum([LinearAlgebra.norm(boundary[i, :]) for i in 1:lat_dim])
         tol = lattice.tol * max_boundary_vec_length
 
-        # check if order is defined, else default to "isless"
-        if isnothing(order)
-            return new(lattice, boundary, periodicity, tol, isless)
-        else
-            return new(lattice, boundary, periodicity, tol, order)
-        end
+        # set defaults: bravais_order defaults to isless, atom_order defaults to nothing (group by atom type)
+        bravais_order = isnothing(bravais_order) ? isless : bravais_order
+        atom_order = isnothing(atom_order) ? nothing : atom_order
+
+        return new(lattice, boundary, periodicity, tol, bravais_order, atom_order)
     end
 
     # alternative constructor to allow setting all boundary conditions at once (true by default)
-    function FiniteLattice(lattice::Lattice, boundary::Matrix{Int64}, periodic::Bool=true; order=nothing)
-        return FiniteLattice(lattice, boundary, fill(periodic, lattice.dim), order)
+    function FiniteLattice(lattice::Lattice, boundary::Matrix{Int64}, periodic::Bool=true; bravais_order=nothing, atom_order=nothing)
+        return FiniteLattice(lattice, boundary, fill(periodic, lattice.dim); bravais_order=bravais_order, atom_order=atom_order)
     end
 
     # alternative constructor for use of LatticeVector types for boundary
-    function FiniteLattice(boundary::Vector{LatticeVector}, periodicity::Vector{Bool}; order=nothing)
+    function FiniteLattice(boundary::Vector{LatticeVector}, periodicity::Vector{Bool}; bravais_order=nothing, atom_order=nothing)
         lattice = boundary[1].lattice
         lat_dim = lattice.dim
         for v in boundary
@@ -76,12 +86,12 @@ struct FiniteLattice
         end
 
         boundary_mat = convert(Matrix{Int64}, hcat([v.coords for v in boundary]...)')
-        return FiniteLattice(lattice, boundary_mat, periodicity, order)
+        return FiniteLattice(lattice, boundary_mat, periodicity; bravais_order=bravais_order, atom_order=atom_order)
     end
 
     # alternative constructor with LatticeVectors and periodicity set everywhere
-    function FiniteLattice(boundary::Vector{LatticeVector}, periodicity::Bool=true; order=nothing)
-        return FiniteLattice(boundary, fill(periodicity, length(boundary)); order=order)
+    function FiniteLattice(boundary::Vector{LatticeVector}, periodicity::Bool=true; bravais_order=nothing, atom_order=nothing)
+        return FiniteLattice(boundary, fill(periodicity, length(boundary)); bravais_order=bravais_order, atom_order=atom_order)
     end
 
 end
@@ -299,6 +309,7 @@ end
 
     Computes the Bravais coordinates (integer multiples of the lattice vectors)
     inside the boundary box (not the real space coordinates of the atoms).
+    The order of the returned coordinates is determined by `flattice.bravais_order`.
 """
 function bravais_cells(flattice::FiniteLattice) :: Vector{LatticeVector}
     lattice = flattice.lattice
@@ -343,7 +354,7 @@ function bravais_cells(flattice::FiniteLattice) :: Vector{LatticeVector}
     end
 
     # take care of sorting 
-    sort!(bravais_coords; lt = (v_lat1, v_lat2) -> flattice.order(v_lat1.coords, v_lat2.coords))
+    sort!(bravais_coords; lt = (v_lat1, v_lat2) -> flattice.bravais_order(v_lat1.coords, v_lat2.coords))
 
     return bravais_coords
 end
@@ -352,15 +363,16 @@ end
     atoms(flattice::FiniteLattice)
 
     Computes all atom coordinates inside the finite lattice in Euclidean coordinates.
-    
-    # Arguments
-    - `flattice::FiniteLattice`: the finite lattice for which to compute the atom coordinates.;
+    The order of the returned coordinates is determined by `flattice.atom_order`.
+    By default (`atom_order=nothing`), identical atoms in different unit cells are grouped
+    together, and the order within these groups is determined by `flattice.bravais_order`.
+    If a custom `atom_order` function is set, the atoms are sorted according to that function.
 """
 function atoms(flattice::FiniteLattice) :: Vector{EuclideanVector}
-    bravais_coords = bravais_cells(flattice) # respects flattice.order already!
+    bravais_coords = bravais_cells(flattice) # respects flattice.bravais_order already!
     pos = positions(flattice.lattice) # Vector{LatticeVector} of atom positions in (0, 0) cell
  
-    # generate list of all coordiantes (same atoms appearing next to each other)
+    # generate list of all coordinates (same atoms appearing next to each other)
     lattice_coords = Vector{LatticeVector}()
     for position_lat_vec in pos
         for bravais_coord in bravais_coords
@@ -369,7 +381,10 @@ function atoms(flattice::FiniteLattice) :: Vector{EuclideanVector}
     end
     euclidean_coords = [to_euclidean_basis(v) for v in lattice_coords]
 
-    # convert to Euclidean coordinates and sort according to flattice.order
-    return sort!(euclidean_coords; lt = (v1, v2) -> flattice.order(v1.coords, v2.coords))
-    
+    # sort according to atom_order if a custom function is provided, otherwise keep default grouping
+    if !isnothing(flattice.atom_order)
+        sort!(euclidean_coords; lt = (v1, v2) -> flattice.atom_order(v1.coords, v2.coords))
+    end
+
+    return euclidean_coords
 end

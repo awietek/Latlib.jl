@@ -24,12 +24,14 @@
             @test flattice.lattice == square_lattice
             @test flattice.boundary == boundary_2d
             @test flattice.periodicity == periodicity_2d
-            @test flattice.order == isless  # default order function
+            @test flattice.bravais_order == isless  # default order function
+            @test flattice.atom_order === nothing  # default atom_order is nothing
             
-            # Test with custom order function
+            # Test with custom order functions
             custom_order(a, b) = a > b
-            flattice_ordered = FiniteLattice(square_lattice, boundary_2d, periodicity_2d, custom_order)
-            @test flattice_ordered.order == custom_order
+            flattice_ordered = FiniteLattice(square_lattice, boundary_2d, periodicity_2d; bravais_order=custom_order)
+            @test flattice_ordered.bravais_order == custom_order
+            @test flattice_ordered.atom_order === nothing
             
         end
         

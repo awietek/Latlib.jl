@@ -1,6 +1,5 @@
 using Revise
 using Latlib
-using GLMakie
 
 # Shastry-Sutherland lattice is among predefined constants
 ss_lattice = shastry_sutherland
@@ -10,7 +9,7 @@ ss_lattice = shastry_sutherland
 L = 6
 W = 4
 boundary = [L÷2 0; 0 W÷2]
-fl = FiniteLattice(ss_lattice, boundary, [false, true], order_xfirst)
+fl = FiniteLattice(ss_lattice, boundary, [false, true]; atom_order=order_xy)
 
 
 # Define Interactions
