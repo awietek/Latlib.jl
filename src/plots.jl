@@ -87,6 +87,7 @@ Draws:
 - `show_unit_cell::Bool=false`: show the unit cell parallelepiped at the origin
 - `show_bravais_grid::Bool=false`: show Bravais lattice vectors as arrows at each cell origin
 - `show_neighbors::Bool=true`: show nearest-neighbor bonds (usually correspond to the lattice edges).
+- `site_marksize::Float64=0.15`: Controls the size of the spheres representing lattice sites.
 - `draw_periodic_flattice::Bool=false`: show grey copies of finite lattice for each face of the finite lattice boundary.
 - `draw_periodic_flattice_shifts::Vector{Tuple{Int, Int, Int}}=nothing`: when `draw_periodic_flattice=true`, determines 
     which periodic images to draw. Each tuple corresponds to a shift along the three boundary vectors of the finite lattice.
@@ -100,6 +101,7 @@ function plot_3d(flattice::FiniteLattice;
     show_unit_cell::Bool=false,
     show_bravais_grid::Bool=false,
     show_neighbors::Bool=true,
+    site_marksize::Float64=0.15,
     draw_periodic_flattice::Bool=false,
     draw_periodic_flattice_shifts::Union{Nothing, Vector{Tuple{Int, Int, Int}}}=nothing,
     scale_factor::Number=1.5,
@@ -131,10 +133,11 @@ function plot_3d(flattice::FiniteLattice;
             push!(ox, 0.0); push!(oy, 0.0); push!(oz, 0.0)
             push!(dx, avec[1]); push!(dy, avec[2]); push!(dz, avec[3])
         end
-        arrows!(ax, ox, oy, oz, dx, dy, dz;
+        arrows3d!(ax, ox, oy, oz, dx, dy, dz;
             color=bravais_arrow_color,
-            arrowsize=Vec3f(0.15, 0.15, 0.2),
-            linewidth=0.04)
+            tipradius=0.15,
+            tiplength=0.2,
+            shaftradius=0.04)
     end
 
     # --- Unit cell parallelepiped ---
@@ -219,7 +222,7 @@ function plot_3d(flattice::FiniteLattice;
         zs = [coords[i].coords[3] for i in idxs]
         meshscatter!(ax, xs, ys, zs;
             color=type_colors[mod1(t, length(type_colors))],
-            markersize=0.15,
+            markersize=site_marksize,
             label="type $t")
     end
 
@@ -374,6 +377,94 @@ function plot_3d(flattice::FiniteLattice, opsum::OpSum;
         framevisible=true, labelsize=14, patchsize=(20, 3))
     # make sure the 3D scene takes most of the width
     colsize!(f.layout, 1, Relative(0.85))
+
+    display(f)
+    return f, ax
+end
+
+
+@doc raw"""
+    plot_3d(flattice, opsum, spin_data; kwargs...)
+
+Plots a 3D `FiniteLattice` with colored interaction edges from an `OpSum`
+and 3D spin arrows at each lattice site.
+
+# Arguments:
+- `flattice::FiniteLattice`: a 3D finite lattice to plot;
+- `opsum::OpSum`: an operator sum containing interactions to plot as edges;
+- `spin_data::AbstractVector`: a length-N vector of 3-component vectors giving
+    the spin at each lattice site. The k-th entry corresponds to the k-th site
+    in `atoms(flattice)`.
+
+# Keyword arguments:
+- `spin_length_multiplier::Float64=1.0`: multiplier for the length of the spin arrows, to match with lattice spacings.;
+- `spin_color:gray`: color of the spin arrows;
+- `spin_tipradius::Float64=0.12`: radius of the arrowhead cone;
+- `spin_tiplength::Float64=0.16`: length of the arrowhead cone;
+- `spin_shaftradius::Float64=0.06`: radius of the arrow shaft;
+- all other keyword arguments are forwarded to `plot_3d(flattice, opsum; ...)`.
+"""
+function plot_3d(flattice::FiniteLattice, opsum::OpSum, spin_data::AbstractVector;
+    spin_length_multiplier::Float64 = 1.0,
+    spin_color=:gray,
+    spin_tipradius::Float64=0.1,
+    spin_tiplength::Float64=0.2,
+    spin_shaftradius::Float64=0.04,
+    draw_periodic_flattice::Bool=false,
+    draw_periodic_flattice_shifts::Union{Nothing, Vector{Tuple{Int, Int, Int}}}=nothing,
+    kwargs...)
+
+    f, ax = plot_3d(flattice, opsum;
+        draw_periodic_flattice=draw_periodic_flattice,
+        draw_periodic_flattice_shifts=draw_periodic_flattice_shifts,
+        kwargs...)
+
+    coords = atoms(flattice)
+    N = length(coords)
+
+    if length(spin_data) != N
+        error("spin_data has length $(length(spin_data)) but the finite lattice has $N sites")
+    end
+
+    # Arrow origins (centered at lattice site) and directions
+    ox = Float64[]; oy = Float64[]; oz = Float64[]
+    dx = Float64[]; dy = Float64[]; dz = Float64[]
+    for k in 1:N
+        s = spin_data[k] * spin_length_multiplier
+        c = coords[k].coords
+        # center the arrow at the site: origin = site - spin/2
+        push!(ox, c[1] - s[1] / 2)
+        push!(oy, c[2] - s[2] / 2)
+        push!(oz, c[3] - s[3] / 2)
+        push!(dx, s[1]); push!(dy, s[2]); push!(dz, s[3])
+    end
+
+    arrows3d!(ax, ox, oy, oz, dx, dy, dz;
+        color=spin_color,
+        tipradius=spin_tipradius*spin_length_multiplier,
+        tiplength=spin_tiplength*spin_length_multiplier,
+        shaftradius=spin_shaftradius*spin_length_multiplier)
+
+    # Draw spin arrows on periodic copies as well
+    if draw_periodic_flattice
+        bvecs = [to_euclidean_basis(v).coords for v in boundary(flattice)]
+        resolved_shifts = if isnothing(draw_periodic_flattice_shifts)
+            [(1,0,0),(-1,0,0),(0,1,0),(0,-1,0),(0,0,1),(0,0,-1)]
+        else
+            draw_periodic_flattice_shifts
+        end
+        for (n1, n2, n3) in resolved_shifts
+            shift = n1 .* bvecs[1] .+ n2 .* bvecs[2] .+ n3 .* bvecs[3]
+            sox = ox .+ shift[1]
+            soy = oy .+ shift[2]
+            soz = oz .+ shift[3]
+            arrows3d!(ax, sox, soy, soz, dx, dy, dz;
+                color=(spin_color, 0.35),
+                tipradius=spin_tipradius*spin_length_multiplier,
+                tiplength=spin_tiplength*spin_length_multiplier,
+                shaftradius=spin_shaftradius*spin_length_multiplier)
+        end
+    end
 
     display(f)
     return f, ax
