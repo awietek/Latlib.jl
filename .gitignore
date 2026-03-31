@@ -1,4 +1,5 @@
 Manifest.toml
+*.h5
 
 docs/build
 .DS_Store

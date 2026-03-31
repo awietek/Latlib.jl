@@ -2,7 +2,7 @@ using Revise
 using Latlib
 
 # pick number of sites (atoms) in finite cluster (e.g. 16 or 32)
-N = 32
+N = 16
 
 # for most N, there are multiple finite clusters, pick a "version" here starting form 1
 ver = 1
@@ -47,6 +47,21 @@ elseif (N, ver) == (32, 4)
         LatticeVector(hyperhoneycomb, [-1, 1, -1]),# t3
     ]
 end
+
+# -------------------------------------------------
+#                   N = 64 clusters               
+# -------------------------------------------------
+
+
+if (N, ver) == (64, 1)
+    fl_vecs = [
+        LatticeVector(hyperhoneycomb, [-2, 2, 2]), # t1
+        LatticeVector(hyperhoneycomb, [1, 1, -1]), # t2
+        LatticeVector(hyperhoneycomb, [-2, 2, -2]),# t3
+    ]
+end
+
+
 
 for (i, v) in enumerate(fl_vecs)
     println("t$i = ", to_euclidean_basis(v))
@@ -105,5 +120,5 @@ plot_3d(fl, opsum;
     annotate_sites_zero_based=true,
     draw_periodic_flattice=true,
     draw_periodic_flattice_shifts=[(1,0,0),(0,1,0), (1,1,0), (0,0,1), (1,0,1), (0,1,1), (1, 1, 1)],
-    scale_factor=1.0,
+    scale_factor=2.0,
     )
