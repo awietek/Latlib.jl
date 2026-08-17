@@ -6,7 +6,7 @@ using GLMakie
 infinite_lat = honeycomb
 
 # pick number of sites (atoms) in finite cluster (e.g. 16 or 32)
-N = 8
+N = 18
 
 # for most N, there are multiple finite clusters, pick a "version" here starting form 1
 ver = 1
@@ -34,6 +34,28 @@ if (N, ver) == (8, 1)
         LatticeVector(honeycomb, [1, 1]),  # t2
     ]
 end
+
+# -------------------------------------------------
+#                   N = 16 cluster               
+# -------------------------------------------------
+if (N, ver) == (16, 1)
+    fl_vecs = [
+        LatticeVector(honeycomb, [2, -2]),  # t1
+        LatticeVector(honeycomb, [2, 2]),  # t2
+    ]
+end
+
+
+# -------------------------------------------------
+#                   N = 18 cluster               
+# -------------------------------------------------
+if (N, ver) == (18, 1)
+    fl_vecs = [
+            LatticeVector(honeycomb, [3, 0]),  # t1
+            LatticeVector(honeycomb, [0, 3]),  # t2
+        ]
+end
+
 
 
 
