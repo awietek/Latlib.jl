@@ -71,6 +71,7 @@ export Op,
 include("lattice/predefined_lattices.jl")
 export square,
         triangular,
+        honeycomb,
         kagome,
         shastry_sutherland,
         hyperhoneycomb

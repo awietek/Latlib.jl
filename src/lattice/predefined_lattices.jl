@@ -17,6 +17,15 @@ A_tri = Matrix(vcat(a1, a2))
 pos_tri = [0.0 0.0]
 const triangular = Lattice(A_tri, pos_tri)
 
+# ----- Honeycomb lattice -----
+theta = pi/6
+a1 = [cos(theta) +sin(theta)]
+a2 = [cos(theta) -sin(theta)]
+A_honeycomb = Matrix(vcat(a1, a2))
+pos_honeycomb = [0.0 0.0;
+                 1/3 1/3]
+const honeycomb = Lattice(A_honeycomb, pos_honeycomb)
+
 # ----- Shastry-Sutherland lattice -----
 # (square Bravais lattice with 4 atoms per unit cell)
 A_ss = [

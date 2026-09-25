@@ -657,7 +657,7 @@ function plot(flattice::FiniteLattice;
     if d == 2
         if ax === nothing
             f = Figure()
-            ax = Axis(f[1, 1])
+            ax = Axis(f[1, 1], aspect=DataAspect())
             show = true
         else
             show = false
@@ -722,24 +722,13 @@ function plot_opsum(opsum::OpSum, flattice::FiniteLattice;
         error(@sprintf "Plotting of FiniteLattice not implemented for dimension %d" d)
     end
 
-    if ax === nothing
-        f = Figure()
-        ax = Axis(f[1, 1])
-        show = true
-    else
-        show = false
-    end
-
-    connected_sites = nothing
-    if highlight_site !== nothing
-        connected_sites = Set{Int}()
-        push!(connected_sites, highlight_site)
-        for op in opsum.ops
-            if op.sites[1] == highlight_site
-                push!(connected_sites, op.sites[2])
-            elseif op.sites[2] == highlight_site
-                push!(connected_sites, op.sites[1])
-            end
+    if d == 2
+        if ax == nothing
+            f = Figure()
+            ax = Axis(f[1, 1], aspect=DataAspect())
+            show = true
+        else
+            show = false
         end
     end
 
