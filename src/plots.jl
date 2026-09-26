@@ -5,63 +5,114 @@ function plot2d(flattice::FiniteLattice,
     ax::Makie.Axis;
     annotate_sites::Bool=true,
     show_boundary::Bool=true,
-    show_neighbors::Bool=true)
+    show_neighbors::Bool=true,
+    highlight_site::Union{Nothing, Int}=nothing,
+    only_highlighted_bonds::Bool=false,
+    background_lattice::Bool=false,
+    connected_sites::Union{Nothing, Set{Int}}=nothing,
+    draw_bonds::Bool=true,
+    draw_sites::Bool=true)
 
     if dim(flattice) != 2
         error(@sprintf "plot2d only supports 2D lattices, but got dimension %d" dim(flattice))
     end
 
-    coords = atoms(flattice)  # Vector{EuclideanVector}
+    coords = atoms(flattice)
     n_coords = length(coords)
 
-    if show_boundary
-        bvecs = [to_euclidean_basis(v) for v in boundary(flattice)]
-        A = (0.0, 0.0)
-        B = Tuple(bvecs[1].coords)
-        C = Tuple(bvecs[1].coords + bvecs[2].coords)
-        D = Tuple(bvecs[2].coords)
-        poly!(ax, Point2f[A, B, C, D], color=1, colormap=:tab10, colorrange=(1, 10), alpha=0.2)
-    end
+    if draw_bonds
+        if show_boundary
+            bvecs = [to_euclidean_basis(v) for v in boundary(flattice)]
+            A = (0.0, 0.0)
+            B = Tuple(bvecs[1].coords)
+            C = Tuple(bvecs[1].coords + bvecs[2].coords)
+            D = Tuple(bvecs[2].coords)
+            poly!(ax, Point2f[A, B, C, D], color=(:blue, 0.1))
+        end
 
-    if show_neighbors
-        nbors = neighbors(flattice)  # Vector{Tuple{Int64, Int64}}
-        metric_pbc = PeriodicEuclideanMetric(flattice)
-        metric_euc = EuclideanMetric()
-        for (i, j) in nbors
-            p1 = coords[i]
-            p2 = coords[j]
+        if show_neighbors
+            nbors = neighbors(flattice)
+            metric_pbc = PeriodicEuclideanMetric(flattice)
+            metric_euc = EuclideanMetric()
+            for (i, j) in nbors
+                is_highlighted = (highlight_site !== nothing) && (i == highlight_site || j == highlight_site)
 
-            # two points differ by periodic direction
-            if !isapprox(metric_pbc(p1, p2), metric_euc(p1, p2))
-                linestyle = :dash
-                d = distance_vector(p2, p1; flattice=flattice)
-                p1_shifted = p2 + d
-                scatter!(ax, [p1_shifted.coords[1]], [p1_shifted.coords[2]], color=:grey, markersize=12)
-                if annotate_sites
-                    text!(ax, [p1_shifted.coords[1]], [p1_shifted.coords[2]], text=string.([i]), color=:grey)
+                if only_highlighted_bonds && highlight_site !== nothing && !is_highlighted
+                    continue
                 end
-                c1 = Tuple(p1_shifted.coords)
-            else
-                linestyle = :solid
-                c1 = Tuple(p1.coords)
-            end
 
-            c2 = Tuple(p2.coords)
-            lines!(ax, [c1, c2], color=2, colormap=:tab10, colorrange=(1, 10),
-                linestyle=linestyle)
+                p1 = coords[i]; p2 = coords[j]
+
+                if !isapprox(metric_pbc(p1, p2), metric_euc(p1, p2))
+                    linestyle = :dash
+                    d = distance_vector(p2, p1; flattice=flattice)
+                    p1_shifted = p2 + d
+                    
+                    # Only draw the periodic shadow scatter if we are drawing sites
+                    if draw_sites
+                        scatter!(ax, [p1_shifted.coords[1]], [p1_shifted.coords[2]], color=:grey, markersize=10)
+                    end
+                    c1 = Tuple(p1_shifted.coords)
+                else
+                    linestyle = :solid
+                    c1 = Tuple(p1.coords)
+                end
+                c2 = Tuple(p2.coords)
+
+                if background_lattice
+                    lines!(ax, [c1, c2], color=(:grey, 0.2), linewidth=1.0, linestyle=linestyle)
+                else
+                    if highlight_site !== nothing
+                        lw = is_highlighted ? 3.0 : 1.0
+                        col = is_highlighted ? :red : (:grey, 0.2)
+                        lines!(ax, [c1, c2], color=col, linewidth=lw, linestyle=linestyle)
+                    else
+                        lines!(ax, [c1, c2], color=2, colormap=:tab10, colorrange=(1, 10), linestyle=linestyle)
+                    end
+                end
+            end
         end
     end
 
-    xs = [c.coords[1] for c in coords]
-    ys = [c.coords[2] for c in coords]
-    scatter!(ax, xs, ys,
-        color=1, colormap=:tab10, colorrange=(1, 10),
-        markersize=12)
+    # draw markers and text
+    if draw_sites
+        xs = [c.coords[1] for c in coords]
+        ys = [c.coords[2] for c in coords]
+        
+        site_colors = Any[]
+        marker_sizes = Float64[]
+        text_colors = Any[]
 
-    if annotate_sites
-        text!(ax, xs, ys, text=string.(1:n_coords))
+        for i in 1:n_coords
+            if connected_sites !== nothing && i in connected_sites
+                if i == highlight_site
+                    push!(site_colors, :red)
+                    push!(marker_sizes, 18.0) 
+                    push!(text_colors, :red)
+                else
+                    push!(site_colors, :black)
+                    push!(marker_sizes, 14.0) 
+                    push!(text_colors, :black)
+                end
+            else
+                if background_lattice || highlight_site !== nothing
+                    push!(site_colors, (:grey, 0.3))
+                    push!(marker_sizes, 10.0)
+                    push!(text_colors, (:grey, 0.4))
+                else
+                    push!(site_colors, :steelblue)
+                    push!(marker_sizes, 12.0)
+                    push!(text_colors, :black)
+                end
+            end
+        end
+
+        scatter!(ax, xs, ys, color=site_colors, markersize=marker_sizes)
+
+        if annotate_sites
+            text!(ax, xs, ys, text=string.(1:n_coords), color=text_colors)
+        end
     end
-
 end
 
 
@@ -528,24 +579,27 @@ end
 
 
 
-
-function plot_ops(opsum::OpSum, flattice::FiniteLattice, ax::Makie.Axis;)
-    # Assign unique numbers starting from 2 to each bond type
+function plot_ops(opsum::OpSum, flattice::FiniteLattice, ax::Makie.Axis;
+    highlight_site::Union{Nothing, Int}=nothing,
+    only_highlighted_bonds::Bool=false)
+    
     bond_types = unique(op.cpl for op in opsum.ops)
     color_map = Dict(bond_type => i + 2 for (i, bond_type) in enumerate(bond_types))
 
-    # Get coordinates of lattice points
-    coords = atoms(flattice)  # Vector{EuclideanVector}
-
+    coords = atoms(flattice)
     metric_pbc = PeriodicEuclideanMetric(flattice)
     metric_euc = EuclideanMetric()
 
-    plotted_bonds = []
     for op in opsum.ops
-        # Get the two sites connected by the bond
         site1, site2 = op.sites
-        p1 = coords[site1]
-        p2 = coords[site2]
+        is_highlighted = (highlight_site !== nothing) && (site1 == highlight_site || site2 == highlight_site)
+
+        if only_highlighted_bonds && highlight_site !== nothing && !is_highlighted
+            continue
+        end
+
+        p1 = coords[site1]; p2 = coords[site2]
+        
         if !isapprox(metric_pbc(p1, p2), metric_euc(p1, p2))
             linestyle = :dash
             d = distance_vector(p2, p1; flattice=flattice)
@@ -553,20 +607,23 @@ function plot_ops(opsum::OpSum, flattice::FiniteLattice, ax::Makie.Axis;)
         else
             linestyle = :solid
         end
-        # Get the color for the bond type
-        bond_color = color_map[op.cpl]
-
+        
         c1 = Tuple(p1.coords)
         c2 = Tuple(p2.coords)
+        bond_color_idx = color_map[op.cpl]
 
-        label = (op.cpl ∉ plotted_bonds) ? string(op.cpl) : ""
-        push!(plotted_bonds, op.cpl)
-
-        if label == string(op.cpl)
-            lines!(ax, [c1, c2], color = bond_color, colormap=:tab10, colorrange=(1, 10), linewidth = 2, linestyle=linestyle, label=label)
+        # Draw the bonds WITHOUT labels
+        if highlight_site !== nothing && !is_highlighted
+            lines!(ax, [c1, c2], color=(:grey, 0.15), linewidth=1, linestyle=linestyle)
         else
-            lines!(ax, [c1, c2], color = bond_color, colormap=:tab10, colorrange=(1, 10), linewidth = 2, linestyle=linestyle)
+            lw = is_highlighted ? 3.0 : 2.0
+            lines!(ax, [c1, c2], color=bond_color_idx, colormap=:tab10, colorrange=(1, 10), linewidth=lw, linestyle=linestyle)
         end
+    end
+
+    # Draw invisible lines
+    for cpl in bond_types
+        lines!(ax, [(NaN, NaN), (NaN, NaN)], color=color_map[cpl], colormap=:tab10, colorrange=(1, 10), label=string(cpl), linewidth=3)
     end
     axislegend(ax)
 end
@@ -584,16 +641,21 @@ Plots a finite lattice.
 - `annotate_sites::Bool=true`: flag to label the lattice sites with a number
 - `show_boundary::Bool=true`: flag to show the boundary box of the lattice
 - `show_neighbors::Bool=true`: flag to show the nearest neighbors of the lattice
+- `highlight_site::Union{Nothing, Int}=nothing`: The index of a specific site to inspect. Bonds from the `OpSum` connected to this site are highlighted, while unrelated bonds are rendered semi-transparently.
+- `only_highlighted_bonds::Bool=false`: If `true` and a `highlight_site` is specified, *only* the `OpSum` bonds connected to the highlighted site will be drawn.
 """
 function plot(flattice::FiniteLattice;
     ax=nothing,
     annotate_sites::Bool=true,
     show_boundary::Bool=true,
-    show_neighbors::Bool=true)
+    show_neighbors::Bool=true,
+    highlight_site::Union{Nothing, Int}=nothing,
+    only_highlighted_bonds::Bool=false)
+    
     d = dim(flattice)
 
     if d == 2
-        if ax == nothing
+        if ax === nothing
             f = Figure()
             ax = Axis(f[1, 1], aspect=DataAspect())
             show = true
@@ -601,8 +663,25 @@ function plot(flattice::FiniteLattice;
             show = false
         end
 
-        plot2d(flattice, ax; annotate_sites, show_boundary, show_neighbors)
-        if show == true
+        # PRE-COMPUTE CONNECTED SITES based on the physical lattice
+        connected_sites = nothing
+        if highlight_site !== nothing
+            connected_sites = Set{Int}()
+            push!(connected_sites, highlight_site)
+            for (i, j) in neighbors(flattice)
+                if i == highlight_site
+                    push!(connected_sites, j)
+                elseif j == highlight_site
+                    push!(connected_sites, i)
+                end
+            end
+        end
+
+        plot2d(flattice, ax; annotate_sites, show_boundary, show_neighbors, 
+               highlight_site, only_highlighted_bonds,
+               background_lattice=false, connected_sites=connected_sites)
+        
+        if show
             display(f)
         end
     elseif d == 3
@@ -627,14 +706,21 @@ Plots a finite lattice with the interaction bonds contained in the OpSum. The in
 - `annotate_sites::Bool=true`: flag to label the lattice sites with a number
 - `show_boundary::Bool=true`: flag to show the boundary box of the lattice
 - `show_neighbors::Bool=true`: flag to show the nearest neighbors of the lattice
+- `highlight_site::Union{Nothing, Int}=nothing`: The index of a specific site to inspect. If provided, bonds connected to this site are highlighted, while unrelated bonds are rendered faintly.
+- `only_highlighted_bonds::Bool=false`: If `true` and a `highlight_site` is specified, *only* the bonds connected to the highlighted site will be drawn, omitting all others entirely.
 """
 function plot_opsum(opsum::OpSum, flattice::FiniteLattice;
     ax=nothing,
     annotate_sites::Bool=true,
     show_boundary::Bool=true,
-    show_neighbors::Bool=true)
+    show_neighbors::Bool=true,
+    highlight_site::Union{Nothing, Int}=nothing,
+    only_highlighted_bonds::Bool=false)
 
     d = dim(flattice)
+    if d != 2
+        error(@sprintf "Plotting of FiniteLattice not implemented for dimension %d" d)
+    end
 
     if d == 2
         if ax == nothing
@@ -644,14 +730,21 @@ function plot_opsum(opsum::OpSum, flattice::FiniteLattice;
         else
             show = false
         end
+    end
 
-        plot2d(flattice, ax; annotate_sites, show_boundary, show_neighbors)
-        plot_ops(opsum, flattice, ax)
+    plot2d(flattice, ax; annotate_sites=false, show_boundary, show_neighbors, 
+           highlight_site, only_highlighted_bonds, 
+           background_lattice=true, connected_sites=connected_sites,
+           draw_bonds=true, draw_sites=false)
+    
+    plot_ops(opsum, flattice, ax; highlight_site, only_highlighted_bonds)
 
-        if show == true
-            display(f)
-        end
-    else
-        error(@sprintf "Plotting of FiniteLattice not implemented for dimension %d" d)
+    plot2d(flattice, ax; annotate_sites, show_boundary=false, show_neighbors=false, 
+           highlight_site, only_highlighted_bonds, 
+           background_lattice=true, connected_sites=connected_sites,
+           draw_bonds=false, draw_sites=true)
+
+    if show
+        display(f)
     end
 end
