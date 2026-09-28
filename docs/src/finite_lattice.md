@@ -45,6 +45,9 @@ fl = FiniteLattice(shastry_sutherland, [3 0; 0 2], [false, true]; atom_order=ord
 atoms(fl)
 ```
 
+A worked example of custom orderings for matrix product states is given in
+[Site ordering for MPS](@ref).
+
 ```@docs
 order_xy
 order_yx

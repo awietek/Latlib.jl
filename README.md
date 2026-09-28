@@ -138,7 +138,8 @@ copies of the first atom of the unit cell come first, ordered by their Bravais
 coordinates, then all copies of the second atom, and so on. Both orderings can
 be customized with the `bravais_order` and `atom_order` keyword arguments of
 `FiniteLattice`; the helpers `order_xy`, `order_yx`, and `order_xyz` sort by
-Cartesian coordinates.
+Cartesian coordinates. The documentation contains a worked example of
+[snaking an MPS through a kagome cylinder](https://awietek.github.io/Latlib.jl/mps_ordering/).
 
 Site indices in `Op` and `OpSum` are 1-based. Use `zero_based=true` in
 `write_toml` to produce 0-based indices for C++ or Python codes.

@@ -76,7 +76,9 @@ copies of the first atom of the unit cell come first, ordered by their Bravais
 coordinates, then all copies of the second atom, and so on. Both orderings can
 be customized with the `bravais_order` and `atom_order` keyword arguments of
 [`FiniteLattice`](@ref); the helpers [`order_xy`](@ref), [`order_yx`](@ref),
-and [`order_xyz`](@ref) sort by Cartesian coordinates.
+and [`order_xyz`](@ref) sort by Cartesian coordinates. See
+[Site ordering for MPS](@ref) for snaking a matrix product state through a
+cylinder.
 
 Site indices in [`Op`](@ref) and [`OpSum`](@ref) are 1-based. Use
 `zero_based=true` in [`write_toml`](@ref) to produce 0-based indices for C++
@@ -85,7 +87,7 @@ or Python codes.
 ## Contents
 
 ```@contents
-Pages = ["lattice.md", "finite_lattice.md", "metric.md", "opsum.md", "io.md", "plots.md"]
+Pages = ["lattice.md", "finite_lattice.md", "mps_ordering.md", "metric.md", "opsum.md", "io.md", "plots.md"]
 Depth = 2
 ```
 
