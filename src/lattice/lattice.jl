@@ -4,7 +4,12 @@ using Base
 
 
 @doc raw"""
-    Lattice
+    Lattice(A::Matrix{Float64}, positions::Matrix{Float64}; types=ones(Int64, P), tol=1e-8)
+    Lattice(A::Matrix{Float64}, positions::Vector{EuclideanVector}; types, tol)
+    Lattice(vs::Vector{EuclideanVector}, positions; types, tol)
+    Lattice(A::Matrix{Float64})
+
+An infinite lattice, i.e., a Bravais lattice with a basis of atoms.
 
 A lattice is defined by its:
 1.  Bravais lattice vectors, 
@@ -51,9 +56,23 @@ are occupied by identical atoms.
 
 # Arguments
 - `A::Matrix{Float64}`: ``D \times D`` matrix whose rows are the Bravais lattice vectors.
-- `positions::Matrix{Float64}`: ``P \times D`` mat  rix whose columns are the atom positions in fractional (lattice basis) coordinates.
+- `positions::Matrix{Float64}`: ``P \times D`` matrix whose rows are the atom positions in fractional (lattice basis) coordinates. If given as a `Vector{EuclideanVector}` instead, the positions are interpreted as Cartesian coordinates and converted to the lattice basis.
 - `types::Vector{Int64}`: ``P`` dimensional integer vector defining the types of the atoms. Defaults to vector of ones.
 - `tol::Float64`: Tolerance for checking whether a point is part of the lattice. Defaults to `1e-8`.
+
+If only `A` is given, a single atom at the origin is assumed.
+
+# Examples
+```julia
+# square lattice with one atom per unit cell
+sq = Lattice([1.0 0.0; 0.0 1.0])
+
+# honeycomb lattice with two atoms per unit cell (positions in lattice basis)
+A = [cos(pi/6) sin(pi/6); cos(pi/6) -sin(pi/6)]
+hc = Lattice(A, [0.0 0.0; 1/3 1/3])
+```
+
+See also [`FiniteLattice`](@ref), [`LatticeVector`](@ref), [`EuclideanVector`](@ref).
 """
 struct Lattice
     A::Matrix{Float64}
@@ -147,23 +166,26 @@ end
 
 """
     dim(lattice::Lattice)
+    dim(flattice::FiniteLattice)
 
-    Obtain the dimension of the lattice.
+Obtain the dimension of the lattice.
 """
 dim(lattice::Lattice) = lattice.dim
 
 """
     natoms(lattice::Lattice)
+    natoms(flattice::FiniteLattice)
 
-    Obtain the number of atomic positions
+Obtain the number of atoms in the unit cell of the lattice.
 """
 natoms(lattice::Lattice) = lattice.natoms
 
 """
     positions(lattice::Lattice)
+    positions(flattice::FiniteLattice)
 
-    Obtain the positions of atoms (in the (0,0) cell) as `LatticeVector`'s (not Euclidean vectors).
-
+Obtain the positions of the atoms in the unit cell at the origin as a `Vector{LatticeVector}`
+(i.e., in the basis of the lattice vectors, not in Cartesian coordinates).
 """
 function positions(lattice::Lattice) :: Vector{LatticeVector}
     return [LatticeVector(lattice, lattice.positions[i, :]) for i in 1:lattice.natoms]
@@ -238,13 +260,28 @@ end
 
 
 
-@doc raw""""
-    `LatticeVector` is a type representing vectors expressed in terms of the basis of a lattice. 
-    It consists of the following fields:
-    
-    - `lattice::Lattice`: The lattice in whose basis the vector is expressed.
-    - `coords::Vector{Float64}`: The coordinates of the vector in the lattice basis.
-    - `dim::Int`: Dimension of the vector.
+@doc raw"""
+    LatticeVector(lattice::Lattice, coords::Vector{<:Real})
+
+A vector expressed in terms of the basis of Bravais lattice vectors of a [`Lattice`](@ref),
+i.e., ``\mathbf{x} = \sum_i c_i \mathbf{a}_i`` with coordinates ``c_i``.
+
+`LatticeVector`s of the same lattice support addition and subtraction.
+Use [`to_euclidean_basis`](@ref) to convert to Cartesian coordinates and
+[`in_lattice`](@ref) to check whether the vector is a Bravais lattice vector
+(i.e., has integer coordinates).
+
+# Fields
+- `lattice::Lattice`: the lattice in whose basis the vector is expressed.
+- `coords::Vector{Float64}`: the coordinates of the vector in the lattice basis.
+- `dim::Int`: dimension of the vector.
+
+# Examples
+```julia
+t1 = LatticeVector(honeycomb, [2, -1])
+to_euclidean_basis(t1)   # EuclideanVector([0.866..., 1.5])
+in_lattice(t1)           # true
+```
 """
 struct LatticeVector
     lattice::Lattice
@@ -290,9 +327,11 @@ end
 
 @doc raw"""
     in_lattice(v::LatticeVector)
+    in_lattice(lattice::Lattice, v::EuclideanVector)
+    in_lattice(v::FiniteLatticeVector)
 
-    Returns whether a `LatticeVector`, i.e., a real-space vector
-    expressed in terms of a lattice basis, is part of the lattice.
+Returns whether a vector is a Bravais lattice vector of the underlying lattice,
+i.e., whether its coordinates in the lattice basis are integers (up to the tolerance of the lattice).
 """
 function in_lattice(v_lat::LatticeVector)
     v_lat_diff = v_lat.coords - Base.round.(v_lat.coords)
@@ -300,9 +339,11 @@ function in_lattice(v_lat::LatticeVector)
 end
 
 @doc raw"""
-    lattice_vectors(lattice::Lattice)
+    to_lattice_basis(lattice::Lattice, v::EuclideanVector) -> LatticeVector
+    to_lattice_basis(v::FiniteLatticeVector) -> LatticeVector
 
-    Convert `EuclideanVector` to lattice basis.
+Convert a vector in Cartesian coordinates (or in the basis of boundary vectors of a
+finite lattice) to a [`LatticeVector`](@ref) expressed in the basis of the lattice vectors.
 """
 function to_lattice_basis(lattice::Lattice, v::EuclideanVector) :: LatticeVector
     v_lat = inv(lattice.A') * v.coords
@@ -311,23 +352,20 @@ end
 
 
 @doc raw"""
-    to_euclidean_basis(v_lat::LatticeVector)
+    to_euclidean_basis(v::LatticeVector) -> EuclideanVector
+    to_euclidean_basis(v::FiniteLatticeVector) -> EuclideanVector
 
-    Convert a vector in the lattice basis to `EuclideanVector` in Cartesian coordinates.
+Convert a vector expressed in the lattice basis (or in the basis of boundary vectors of a
+finite lattice) to an [`EuclideanVector`](@ref) in Cartesian coordinates.
 """
 function to_euclidean_basis(v_lat::LatticeVector) :: EuclideanVector
     return EuclideanVector(v_lat.lattice.A' * v_lat.coords)
 end
 
 
-@doc raw"""
-    in_lattice(lattice::Lattice, v::EuclideanVector)
-
-    Returns whether a `EuclideanVector` is part of the lattice.
-"""
 function in_lattice(lattice::Lattice, v::EuclideanVector)
     v_lat = to_lattice_basis(lattice, v)
-    return in_lattice(lattice, v_lat)
+    return in_lattice(v_lat)
 end
 
 

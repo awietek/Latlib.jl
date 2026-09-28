@@ -135,4 +135,26 @@
         
 
     end
+
+    # Test membership checks and norms of vectors
+    @testset "in_lattice and norm" begin
+        A = [
+            2.0 0.0 0.0;    # a1
+            0.0 1.0 0.0;    # a2
+            0.0 0.0 5.0     # a3
+        ]
+        lat = Lattice(A)
+
+        # LatticeVector with integer / non-integer coordinates
+        @test in_lattice(LatticeVector(lat, [1, -2, 3]))
+        @test !in_lattice(LatticeVector(lat, [0.5, 0.0, 0.0]))
+
+        # EuclideanVector: a1 + a3 is in the lattice, a1/2 is not
+        @test in_lattice(lat, EuclideanVector([2.0, 0.0, 5.0]))
+        @test !in_lattice(lat, EuclideanVector([1.0, 0.0, 0.0]))
+
+        # norm extends LinearAlgebra.norm
+        @test LinearAlgebra.norm(EuclideanVector([3.0, 4.0])) ≈ 5.0
+        @test LinearAlgebra.norm(EuclideanVector([1, 2, 2])) ≈ 3.0
+    end
 end

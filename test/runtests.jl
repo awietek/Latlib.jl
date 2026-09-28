@@ -1,5 +1,6 @@
 using Test
 using Latlib
+using LinearAlgebra
 
 
 @testset "Latlib.jl" begin

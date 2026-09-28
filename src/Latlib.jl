@@ -5,12 +5,7 @@ include("utils.jl")
 
 
 include("vectors.jl")
-export EuclideanVector,
-        equal,
-        plus,
-        minus,
-        mul,
-        norm
+export EuclideanVector
 
 
 include("lattice/lattice.jl")
@@ -43,7 +38,7 @@ export FiniteLattice,
         FiniteLatticeVector, 
         to_lattice_basis,
         to_euclidean_basis,
-        to_finite_lattice_vector,
+        to_finite_lattice_basis,
         bravais_cells,
         atoms
 
@@ -61,8 +56,6 @@ export EuclideanMetric,
 include("opsum.jl")
 export Op,
         OpSum,
-        isequal,
-        isless,
         unique_ops!,
         neighbor_interaction,
         lattice_interaction

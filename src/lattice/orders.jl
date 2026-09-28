@@ -8,7 +8,13 @@ using LinearAlgebra
 #             Sorting routines for 2D vectors
 # --------------------------------------------------------
 
-# sort 2D vectors by x-coordinate first, then y-coordinate (smaller number comes first)
+"""
+    order_xy(a::Vector{Float64}, b::Vector{Float64}) -> Bool
+
+Ordering of 2D vectors by x-coordinate first, then y-coordinate (smaller values first).
+Returns `true` if `a` should be ordered before `b`. Can be passed as `bravais_order` or
+`atom_order` to [`FiniteLattice`](@ref).
+"""
 function order_xy(a::Vector{Float64}, b::Vector{Float64})
     if (length(a) != length(b)) || (length(a) != 2)
         error("Vectors a and b must be vectors of length 2 for order_xy!")
@@ -16,7 +22,13 @@ function order_xy(a::Vector{Float64}, b::Vector{Float64})
     return (a[1] < b[1]) || ((a[1] == b[1]) && (a[2] < b[2]))
 end
 
-# sort 2D vectors by y-coordinate first, then x-coordinate (smaller number comes first)
+"""
+    order_yx(a::Vector{Float64}, b::Vector{Float64}) -> Bool
+
+Ordering of 2D vectors by y-coordinate first, then x-coordinate (smaller values first).
+Returns `true` if `a` should be ordered before `b`. Can be passed as `bravais_order` or
+`atom_order` to [`FiniteLattice`](@ref).
+"""
 function order_yx(a::Vector{Float64}, b::Vector{Float64})
     if (length(a) != length(b)) || (length(a) != 2)
         error("Vectors a and b must be vectors of length 2 for order_yx!")
@@ -28,7 +40,13 @@ end
 #             Sorting routines for 3D vectors
 # --------------------------------------------------------
 
-# sort 3D vectors by x-coordinate first, then y-coordinate, then z-coordinate (smaller number comes first)
+"""
+    order_xyz(a::Vector{Float64}, b::Vector{Float64}) -> Bool
+
+Ordering of 3D vectors by x-coordinate first, then y, then z (smaller values first).
+Returns `true` if `a` should be ordered before `b`. Can be passed as `bravais_order` or
+`atom_order` to [`FiniteLattice`](@ref).
+"""
 function order_xyz(a::Vector{Float64}, b::Vector{Float64})
     if (length(a) != length(b)) || (length(a) != 3)
         error("Vectors a and b must be vectors of length 3 for order_xyz!")

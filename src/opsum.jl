@@ -1,14 +1,19 @@
 using TOML
 
 @doc raw"""
-    Op
-    
-Represents an many-body quantum operator ``\mathbf{O}``.
+    Op(type::String, cpl::Union{String, Number}, sites::Vector{Int64})
+
+Represents a single term of a many-body Hamiltonian, e.g. a two-body interaction between
+two sites.
 
 # Arguments
-- `type::String`: String specifing the type of operator: "HB", "Cup", etc ...
-- `cpl::Union{String, Number}`: String or number specifying the coupling constant;
-- `sites::Vector{Int64}`: Vector specifing the sites on which the operator acts.
+- `type::String`: string specifying the type of operator, e.g. "SdotS", "HB", "Cup", ...
+- `cpl::Union{String, Number}`: string or number specifying the coupling constant, e.g. "J" or 1.0
+- `sites::Vector{Int64}`: 1-based indices of the sites on which the operator acts, as enumerated by [`atoms`](@ref).
+
+```julia
+Op("SdotS", "J", [1, 2])
+```
 """
 struct Op
     type::String
@@ -71,18 +76,23 @@ end
 
 
 @doc raw"""
-    OpSum
+    OpSum()
+    OpSum(ops::Vector{Op})
 
-Constructor to collect all operators that appear in the Hamiltonian.
+A sum of operators [`Op`](@ref), representing a Hamiltonian.
 
-One can use the `+=` operator to add operators to the OpSum:
+Operators and other `OpSum`s can be added with `+=`:
 
 ```julia
-    opsum = OpSum()
-    opsum += Op("HB", "Jd", [1,2])
-    opsum += Op("HB", "Jd", [2,3])
-    opsum += Op("HB", "Jd", [3,4])
+opsum = OpSum()
+opsum += Op("HB", "Jd", [1, 2])
+opsum += Op("HB", "Jd", [2, 3])
+opsum += neighbor_interaction("HB", "J", flattice)
 ```
+
+Typically, an `OpSum` is generated on a [`FiniteLattice`](@ref) with
+[`neighbor_interaction`](@ref) or [`lattice_interaction`](@ref) and written to a file
+with [`write_toml`](@ref).
 """
 mutable struct OpSum
     ops::Vector{Op}
@@ -113,7 +123,11 @@ function Base.:(+)(sum1::OpSum, sum2::OpSum)
     return OpSum(push!(sum1.ops, sum2.ops...))
 end
 
-# remove duplicates and sort the operators in the OpSum
+"""
+    unique_ops!(opsum::OpSum)
+
+Remove duplicate operators from `opsum` and sort the remaining operators in place.
+"""
 function unique_ops!(opsum::OpSum)
     opsum.ops = sort(unique(opsum.ops))
 end
@@ -135,8 +149,17 @@ nearest neighbors on a finite lattice where k = num_distance.
 # Arguments
 - `type::String`: String specifing the type of operator: "HB", "Cup", etc ...;
 - `cpl::Union{String, Number}`: String or number specifying the coupling constant;
-- `lattice::FiniteLattice`: The lattice on which the operator acts;
+- `flattice::FiniteLattice`: The lattice on which the operator acts;
+
+# Keyword arguments
 - `num_distance::Int64=1`: Distance at which neighbors are considered, 1 -> nearest neighbor, 2 -> second nearest neighbor, etc.
+
+# Examples
+```julia
+fl = FiniteLattice(square, [4 0; 0 4], true)
+H = neighbor_interaction("SdotS", "J1", fl)                  # nearest neighbors
+H += neighbor_interaction("SdotS", "J2", fl; num_distance=2)  # next-nearest neighbors
+```
 """
 function neighbor_interaction(type::String,
                         cpl::Union{String, Number},
@@ -168,12 +191,22 @@ The interaction is repeated for all Bravais cells of the finite lattice!
 - `type::String`: String specifing operator type: "HB", "Cup", etc ...;
 - `cpl::Union{String, Number}`: String or number specifying the coupling constant.;
 - `flattice::FiniteLattice`: The lattice on which the operator acts.;
-- 'atom1::Int64': Index (as defined by flattice.lattice.positions) of the first atom taking part in the interaction;
-- 'atom2::Int64': Index (as defined by flattice.lattice.positions) of the second atom taking part in the interaction;
-- 'cell2::Union{Vector{Int64}, LatticeVector}': Bravais cell of atom2 (atom1 is always assumed in the origin Bravais cell).
+- `atom1::Int64`: Index (as defined by `positions(flattice)`) of the first atom taking part in the interaction;
+- `atom2::Int64`: Index (as defined by `positions(flattice)`) of the second atom taking part in the interaction;
+- `cell2::Union{Vector{Int64}, LatticeVector}`: Bravais cell of atom2 (atom1 is always assumed in the origin Bravais cell).
 
 # Returns
-- `OpSum`: OpSum() containing the corresponding two-body operator acting between the specified sites in all Bravais cells of the finite lattice. The individual operators assume the same labelling of sites as in flattice.lattice.positions.
+- `OpSum`: contains the corresponding two-body operator acting between the specified sites in all Bravais cells of the finite lattice. The site indices of the operators refer to the enumeration of sites given by [`atoms`](@ref).
+
+# Examples
+```julia
+# Kitaev model on the honeycomb lattice (two atoms per unit cell)
+fl = FiniteLattice(honeycomb, [2 -2; 1 1], true)
+H = OpSum()
+H += lattice_interaction("SxSx", "KX", fl, 1, 2, [0, 0])   # atom 1 to atom 2 in the same cell
+H += lattice_interaction("SySy", "KY", fl, 1, 2, [0, -1])  # atom 1 to atom 2 in cell [0, -1]
+H += lattice_interaction("SzSz", "KZ", fl, 2, 1, [1, 0])   # atom 2 to atom 1 in cell [1, 0]
+```
 """
 function lattice_interaction(type::String,
                        cpl::Union{String, Number},

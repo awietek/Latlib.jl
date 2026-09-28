@@ -1,2 +1,6 @@
 [deps]
 Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
+Latlib = "c4002ea4-6ce3-4785-97ba-a9d3015475cb"
+
+[compat]
+Documenter = "1"

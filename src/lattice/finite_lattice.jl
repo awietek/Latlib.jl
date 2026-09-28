@@ -4,7 +4,10 @@ using LinearAlgebra
 #using IterTools
 
 @doc raw"""
-    FiniteLattice
+    FiniteLattice(lattice::Lattice, boundary::Matrix{Int64}, periodicity::Vector{Bool}; bravais_order=nothing, atom_order=nothing)
+    FiniteLattice(lattice::Lattice, boundary::Matrix{Int64}, periodic::Bool=true; kwargs...)
+    FiniteLattice(boundary::Vector{LatticeVector}, periodicity::Vector{Bool}; kwargs...)
+    FiniteLattice(boundary::Vector{LatticeVector}, periodic::Bool=true; kwargs...)
 
 A lattice with a finite number of sites confined by a boundary box.
 The boundary box vectors``\mathcal{B}_i`` are specified as integer
@@ -28,6 +31,23 @@ multiples of the lattice vectors. The cartesian boundary box vectors
                 by `atoms`. This keyword behaves just as `bravais_order`, with the difference that
                 the default behavior places identical atoms in different unit cells next to each other,
                 the order within these groups being determined by `bravais_order`.
+
+The sites of the finite lattice are enumerated by [`atoms`](@ref), the Bravais cells by
+[`bravais_cells`](@ref).
+
+# Examples
+```julia
+# 4x4 periodic cluster of the square lattice
+fl = FiniteLattice(square, [4 0; 0 4], true)
+
+# 6x4 cylinder of the triangular lattice, open along the first direction
+fl = FiniteLattice(triangular, [6 0; 0 4], [false, true])
+
+# cluster spanned by boundary vectors given as LatticeVectors
+t1 = LatticeVector(honeycomb, [2, -2])
+t2 = LatticeVector(honeycomb, [1, 1])
+fl = FiniteLattice([t1, t2], true)
+```
 """
 struct FiniteLattice
     lattice::Lattice
@@ -96,32 +116,12 @@ struct FiniteLattice
 
 end
 
-@doc """
-    dim(flattice::FiniteLattice)
-
-Obtain the dimension of the lattice.
-"""
 dim(flattice::FiniteLattice) = flattice.lattice.dim
 
-@doc """
-    natoms(flattice::FiniteLattice)
-
-Obtain the number of atomic positions
-"""
 natoms(flattice::FiniteLattice) = flattice.lattice.natoms
 
-@doc """
-    positions(flattice::FiniteLattice)
-
-Obtain Vector{LatticeVector} objects containing positions of all atoms IN THE UNIT CELL of the underlying lattice.
-"""
 positions(flattice::FiniteLattice) = positions(flattice.lattice)
 
-@doc """
-    get_position(flattice::FiniteLattice, atom_index::Int64)
-
-Obtain the position of a specific atom IN THE UNIT CELL of the underlying lattice as a `LatticeVector` object.
-"""
 get_position(flattice::FiniteLattice, idx::Int64) = get_position(flattice.lattice, idx)
 
 @doc """
@@ -148,11 +148,6 @@ function periodic_boundary(flattice::FiniteLattice)
     return [LatticeVector(flattice.lattice, flattice.boundary[i, :]) for i in 1:dim(flattice) if flattice.periodicity[i]]
 end
 
-@doc """
-    lattice_vecs(flattice::FiniteLattice) :: Vector{EuclideanVector}
-
-Returns list of lattice vectors as `EuclideanVector`s.
-"""
 function lattice_vecs(flattice::FiniteLattice) :: Vector{EuclideanVector}
     return [EuclideanVector(flattice.lattice.A[i, :]) for i in 1:flattice.lattice.dim]
 end
@@ -182,14 +177,17 @@ end
 
 
 @doc raw"""
-    FiniteLatticeVector(flattice::FiniteLattice, coords::Vector{Float64})
+    FiniteLatticeVector(flattice::FiniteLattice, coords::Vector{<:Real})
+    FiniteLatticeVector(flattice::FiniteLattice, v::LatticeVector)
+    FiniteLatticeVector(flattice::FiniteLattice, v::EuclideanVector)
 
-    A vector given in terms of the boundary (not lattice) vectors of a `FiniteLattice`.
+A vector given in terms of the boundary (not lattice) vectors of a [`FiniteLattice`](@ref).
 
-    Inputs:
-    - `flattice::FiniteLattice`: the finite lattice to which the vector belongs, defining the boundary vectors in terms of which the coordinates are given.
-    - `coords::Vector{Float64}`: the coordinates of the vector in terms of the boundary vectors of the finite lattice.
+# Arguments
+- `flattice::FiniteLattice`: the finite lattice to which the vector belongs, defining the boundary vectors in terms of which the coordinates are given.
+- `coords::Vector{Float64}`: the coordinates of the vector in terms of the boundary vectors of the finite lattice.
 
+A `LatticeVector` or `EuclideanVector` is converted to the basis of boundary vectors.
 """
 struct FiniteLatticeVector
     flattice::FiniteLattice
@@ -228,28 +226,19 @@ struct FiniteLatticeVector
 end
 
 
-@doc """
-    to_lattice_vector(v::FiniteLatticeVector)
-
-    Convert a `FiniteLatticeVector` to a `LatticeVector`.
-"""
 function to_lattice_basis(v::FiniteLatticeVector) ::LatticeVector
     return LatticeVector(v.flattice.lattice, v.flattice.boundary' * v.coords)
 end
 
-@doc """
-    to_euclidean_basis(v::FiniteLatticeVector)
-
-    Convert a `FiniteLatticeVector` to a `EuclideanVector`.
-"""
 function to_euclidean_basis(v::FiniteLatticeVector) ::EuclideanVector
     return to_euclidean_basis(to_lattice_basis(v))
 end
 
 @doc """
-    to_finite_lattice_basis(v::LatticeVector, flattice::FiniteLattice)
+    to_finite_lattice_basis(flattice::FiniteLattice, v::LatticeVector) -> FiniteLatticeVector
 
-    Convert a `LatticeVector` to a `FiniteLatticeVector`.
+Convert a `LatticeVector` to a [`FiniteLatticeVector`](@ref), i.e., express it in the basis
+of the boundary vectors of `flattice`.
 """
 function to_finite_lattice_basis(flattice::FiniteLattice, v::LatticeVector) ::FiniteLatticeVector
     return FiniteLatticeVector(flattice, v)
@@ -258,8 +247,8 @@ end
 @doc """
     round(v::FiniteLatticeVector)
 
-    Returns the nearest `FiniteLatticeVector` with integer coordinates to the input vector `v`,
-    i.e., the best approximation of v as as multiple of boundary vectors.
+Returns the nearest `FiniteLatticeVector` with integer coordinates to the input vector `v`,
+i.e., the best approximation of `v` as an integer combination of the boundary vectors.
 """
 function round(v::FiniteLatticeVector) ::FiniteLatticeVector
     return FiniteLatticeVector(v.flattice, round.(v.coords))
@@ -268,17 +257,13 @@ end
 @doc """
     on_boundary(v::FiniteLatticeVector)
 
-    Checks if a `FiniteLatticeVector` is a multiple of the boundary vectors, i.e., if it corresponds to a torus vector.
+Checks if a `FiniteLatticeVector` is an integer combination of the boundary vectors,
+i.e., if it corresponds to a torus vector.
 """
 function on_boundary(v::FiniteLatticeVector) :: Bool
     return all(is_whole.(v.coords; atol=v.flattice.tol))
 end
 
-@doc """
-    in_lattice(v::FiniteLatticeVector)
-
-    Checks if a `FiniteLatticeVector` is inside the underlying lattice.
-"""
 function in_lattice(v::FiniteLatticeVector) :: Bool
     return in_lattice(to_lattice_basis(v))
 end
@@ -305,11 +290,11 @@ end
 
 
 @doc """
-    bravais_cells(flattice::FiniteLattice)
+    bravais_cells(flattice::FiniteLattice) -> Vector{LatticeVector}
 
-    Computes the Bravais coordinates (integer multiples of the lattice vectors)
-    inside the boundary box (not the real space coordinates of the atoms).
-    The order of the returned coordinates is determined by `flattice.bravais_order`.
+Computes the Bravais coordinates (integer combinations of the lattice vectors)
+of all unit cells inside the boundary box (not the real space coordinates of the atoms).
+The order of the returned coordinates is determined by `flattice.bravais_order`.
 """
 function bravais_cells(flattice::FiniteLattice) :: Vector{LatticeVector}
     lattice = flattice.lattice
@@ -360,13 +345,15 @@ function bravais_cells(flattice::FiniteLattice) :: Vector{LatticeVector}
 end
 
 """
-    atoms(flattice::FiniteLattice)
+    atoms(flattice::FiniteLattice) -> Vector{EuclideanVector}
 
-    Computes all atom coordinates inside the finite lattice in Euclidean coordinates.
-    The order of the returned coordinates is determined by `flattice.atom_order`.
-    By default (`atom_order=nothing`), identical atoms in different unit cells are grouped
-    together, and the order within these groups is determined by `flattice.bravais_order`.
-    If a custom `atom_order` function is set, the atoms are sorted according to that function.
+Computes the Cartesian coordinates of all sites of the finite lattice.
+The position in the returned vector defines the site index used in [`Op`](@ref) and [`OpSum`](@ref).
+
+The order of the returned coordinates is determined by `flattice.atom_order`.
+By default (`atom_order=nothing`), identical atoms in different unit cells are grouped
+together, and the order within these groups is determined by `flattice.bravais_order`.
+If a custom `atom_order` function is set, the atoms are sorted according to that function.
 """
 function atoms(flattice::FiniteLattice) :: Vector{EuclideanVector}
     bravais_coords = bravais_cells(flattice) # respects flattice.bravais_order already!

@@ -13,8 +13,14 @@ TOML = "fa267f1f-6049-4f14-aa54-33bafae1ed76"
 
 
 [compat]
-GLMakie = "0.9"
-julia = "1"
+Dates = "1"
+GLMakie = "0.13"
+IterTools = "1"
+LinearAlgebra = "1"
+Printf = "1"
+TOML = "1"
+Test = "1"
+julia = "1.10"
 
 [extras]
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"

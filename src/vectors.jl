@@ -6,10 +6,26 @@
 =#
 
 @doc raw"""
-    `EuclideanVector` is a type representing vectors in Euclidean (real) space, relative to the standard basis. It consists of two fields:
-    
-    - `coords::Vector{Float64}`: A vector containing the coordinates of the Euclidean vector.
-    - `dim::Int`: Dimension of the vector.
+    EuclideanVector(coords::Vector{<:Real})
+
+A vector in Euclidean (real) space, given relative to the standard Cartesian basis.
+Only two- and three-dimensional vectors are supported.
+
+`EuclideanVector`s support addition, subtraction, multiplication by a scalar, the
+inner product `v1 * v2`, and `LinearAlgebra.norm`.
+
+# Fields
+- `coords::Vector{Float64}`: coordinates of the vector.
+- `dim::Int`: dimension of the vector (2 or 3).
+
+# Examples
+```julia
+v = EuclideanVector([1.0, 2.0])
+w = EuclideanVector([3, 4])   # integer input is converted to Float64
+v + w                         # EuclideanVector([4.0, 6.0])
+2 * v                         # EuclideanVector([2.0, 4.0])
+v * w                         # 11.0 (inner product)
+```
 """
 struct EuclideanVector
     coords::Vector{Float64}
@@ -62,8 +78,8 @@ function Base.:*(v1::EuclideanVector, v2::EuclideanVector)
     return dot(v1.coords, v2.coords)
 end
 
-# norm
-function norm(v::EuclideanVector)
+# norm (extends LinearAlgebra.norm)
+function LinearAlgebra.norm(v::EuclideanVector)
     return sqrt(v * v)
 end
 
