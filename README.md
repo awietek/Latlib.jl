@@ -63,7 +63,8 @@ H += neighbor_interaction("SdotS", "J", fl; num_distance=1)
 write_toml(fl, H, "triangular-N-16.toml"; zero_based=true)
 
 # interactive plot of the cluster with its bonds
-plot_opsum(H, fl)
+f, ax = plot_opsum(H, fl)
+wait(display(f))   # keeps the window open when run as a script
 ```
 
 The written TOML file contains the coordinates of all sites and one entry per
@@ -72,7 +73,7 @@ interaction:
 ```toml
 Coordinates = [
   [0.0, 0.0],
-  [0.5, -0.8660254],
+  [0.5, 0.8660254],
   ...
 ]
 
@@ -124,12 +125,14 @@ t = [LatticeVector(hyperhoneycomb, [-1, 1, 1]),
 fl = FiniteLattice(t, true)          # 16 sites, fully periodic
 
 H = neighbor_interaction("SdotS", "J", fl)
-plot_3d(fl, H; cpl_dict=Dict("J" => :black), annotate_sites=true)
+f, ax = plot_3d(fl, H; cpl_dict=Dict("J" => :black), annotate_sites=true)
+wait(display(f))
 ```
 
 More complete scripts, including Kitaev interactions on the hyperhoneycomb
 lattice, a Shastry-Sutherland cylinder, and plotting of spin configurations,
-are in the [`examples`](examples) directory.
+are in the [`examples`](examples) directory and are walked through on the
+[Examples](https://awietek.github.io/Latlib.jl/examples/) page of the documentation.
 
 ## Site ordering
 
@@ -139,7 +142,7 @@ coordinates, then all copies of the second atom, and so on. Both orderings can
 be customized with the `bravais_order` and `atom_order` keyword arguments of
 `FiniteLattice`; the helpers `order_xy`, `order_yx`, and `order_xyz` sort by
 Cartesian coordinates. The documentation contains a worked example of
-[snaking an MPS through a kagome cylinder](https://awietek.github.io/Latlib.jl/mps_ordering/).
+[choosing the MPS path on square, triangular, and kagome cylinders](https://awietek.github.io/Latlib.jl/mps_ordering/).
 
 Site indices in `Op` and `OpSum` are 1-based. Use `zero_based=true` in
 `write_toml` to produce 0-based indices for C++ or Python codes.

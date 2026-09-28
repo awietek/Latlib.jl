@@ -58,36 +58,48 @@ H += neighbor_interaction("SdotS", "J", fl; num_distance=1)
 length(H.ops)
 ```
 
-Finally, the cluster and its interactions are written to a TOML file
-(here we print the file content instead):
+The cluster and its interactions are written to a TOML file with
+[`write_toml`](@ref). Site indices in the file are 1-based by default; pass
+`zero_based=true` for C++ or Python codes. Here we print the file content
+instead of writing it:
 
 ```@example quickstart
 toml = write_toml(fl, H, "triangular-N-16.toml"; zero_based=true, return_string=true)
 println(join(split(toml, "\n")[1:20], "\n"))  # first 20 lines
 ```
 
-To visualize the cluster interactively, call `plot_opsum(H, fl)`; see
-[Plotting](@ref).
+Finally, [`plot_opsum`](@ref) opens an interactive window showing the sites
+of the cluster, its boundary box, and the bonds of the `OpSum`, colored by
+coupling. In the REPL, the window stays open. In a script, it would close as
+soon as the script ends, so wait until the user closes it:
 
-## Site ordering
+```julia
+f, ax = plot_opsum(H, fl)
+wait(display(f))   # keeps the window open; not needed in the REPL
+```
 
-Sites in a `FiniteLattice` are enumerated by [`atoms`](@ref). By default, all
-copies of the first atom of the unit cell come first, ordered by their Bravais
-coordinates, then all copies of the second atom, and so on. Both orderings can
-be customized with the `bravais_order` and `atom_order` keyword arguments of
-[`FiniteLattice`](@ref); the helpers [`order_xy`](@ref), [`order_yx`](@ref),
-and [`order_xyz`](@ref) sort by Cartesian coordinates. See
-[Site ordering for MPS](@ref) for snaking a matrix product state through a
-cylinder.
+To draw into an existing Makie axis instead, e.g. to save the figure to a
+file, pass it as the `ax` keyword argument:
 
-Site indices in [`Op`](@ref) and [`OpSum`](@ref) are 1-based. Use
-`zero_based=true` in [`write_toml`](@ref) to produce 0-based indices for C++
-or Python codes.
+```@example quickstart
+using GLMakie: Figure, Axis, DataAspect, hidedecorations!, save
+
+f = Figure(size=(600, 400))
+ax = Axis(f[1, 1], aspect=DataAspect())
+plot_opsum(H, fl; ax=ax)
+hidedecorations!(ax)
+save("triangular-N-16.png", f)
+f
+```
+
+Three-dimensional lattices are drawn with [`plot_3d`](@ref); see
+[Plotting](@ref). More complete models, including Kitaev interactions on the
+honeycomb and hyperhoneycomb lattices, are shown on the [Examples](@ref) page.
 
 ## Contents
 
 ```@contents
-Pages = ["lattice.md", "finite_lattice.md", "mps_ordering.md", "metric.md", "opsum.md", "io.md", "plots.md"]
+Pages = ["lattice.md", "finite_lattice.md", "mps_ordering.md", "metric.md", "opsum.md", "io.md", "plots.md", "examples.md"]
 Depth = 2
 ```
 

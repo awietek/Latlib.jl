@@ -17,14 +17,16 @@ const square = Lattice(A_square, pos_square)
 
 # ----- triangular lattice -----
 theta = pi/3
-a1 = [cos(theta) +sin(theta)]
-a2 = [cos(theta) -sin(theta)]
+# a1 = [cos(theta) +sin(theta)]
+# a2 = [cos(theta) -sin(theta)]
+a1 = [1 0]
+a2 = [cos(theta) sin(theta)]
 A_tri = Matrix(vcat(a1, a2))
 pos_tri = [0.0 0.0]
 """
     triangular
 
-Triangular lattice with lattice vectors ``\\mathbf{a}_{1,2} = (\\cos\\frac{\\pi}{3}, \\pm\\sin\\frac{\\pi}{3})``
+Triangular lattice with lattice vectors ``\\mathbf{a}_1 = (1, 0)``, ``\\mathbf{a}_2 = (1/2, \\sqrt{3}/2)``
 and one atom per unit cell.
 """
 const triangular = Lattice(A_tri, pos_tri)

@@ -144,6 +144,11 @@ Draws:
     which periodic images to draw. Each tuple corresponds to a shift along the three boundary vectors of the finite lattice.
     By default, all 6 face-sharing neighbors are drawn: `[(1,0,0),(-1,0,0),(0,1,0),(0,-1,0),(0,0,1),(0,0,-1)]`.
 - `scale_factor::Number=1.5`: controls, among other things, the scale of labels
+
+# Returns
+The Makie figure and axis `(f, ax)`. The figure is displayed in an interactive window.
+When called from a script, keep the window open until it is closed by the user with
+`wait(display(f))`.
     """
 function plot_3d(flattice::FiniteLattice;
     annotate_sites::Bool=false,
@@ -630,14 +635,25 @@ end
 
 
 @doc raw"""
-    plot
+    plot(flattice::FiniteLattice; ax=nothing, kwargs...) -> (figure, axis)
 
-Plots a finite lattice.
+Plots a finite lattice with its sites, nearest neighbor bonds, and boundary box.
+For 2D lattices, a new figure is created and displayed unless a Makie axis is passed
+as `ax`, in which case the plot is drawn into that axis. 3D lattices are forwarded
+to [`plot_3d`](@ref). Returns the Makie figure and axis.
+
+When called from a script, the window is closed as soon as the script ends. To keep
+it open until it is closed by the user, wait for the display:
+```julia
+f, ax = plot(flattice)
+wait(display(f))
+```
 
 # Arguments
 - `flattice::FiniteLattice`: finite lattice to plot
 
 # Keyword arguments
+- `ax=nothing`: Makie axis to draw into; if `nothing`, a new figure is created and displayed
 - `annotate_sites::Bool=true`: flag to label the lattice sites with a number
 - `show_boundary::Bool=true`: flag to show the boundary box of the lattice
 - `show_neighbors::Bool=true`: flag to show the nearest neighbors of the lattice
@@ -683,9 +699,12 @@ function plot(flattice::FiniteLattice;
         
         if show
             display(f)
+        else
+            f = ax.parent
         end
+        return f, ax
     elseif d == 3
-        plot_3d(flattice; annotate_sites, show_boundary, show_neighbors)
+        return plot_3d(flattice; annotate_sites, show_boundary, show_neighbors)
     else
         error(@sprintf "Plotting of FiniteLattice not implemented for dimension %d" d)
     end
@@ -694,15 +713,26 @@ end
 
 
 @doc raw"""
-    plot_opsum
+    plot_opsum(opsum::OpSum, flattice::FiniteLattice; ax=nothing, kwargs...) -> (figure, axis)
 
-Plots a finite lattice with the interaction bonds contained in the OpSum. The interaction with differnt couplings are represented in distintic colors.
+Plots a 2D finite lattice with the interaction bonds contained in the `OpSum`.
+Interactions with different couplings are drawn in distinct colors. A new figure is
+created and displayed unless a Makie axis is passed as `ax`, in which case the plot
+is drawn into that axis. Returns the Makie figure and axis.
+
+When called from a script, the window is closed as soon as the script ends. To keep
+it open until it is closed by the user, wait for the display:
+```julia
+f, ax = plot_opsum(opsum, flattice)
+wait(display(f))
+```
 
 # Arguments
-- `opsum::OpSum`: finite lattice to plot
+- `opsum::OpSum`: operators whose bonds are drawn
 - `flattice::FiniteLattice`: finite lattice to plot
 
 # Keyword arguments
+- `ax=nothing`: Makie axis to draw into; if `nothing`, a new figure is created and displayed
 - `annotate_sites::Bool=true`: flag to label the lattice sites with a number
 - `show_boundary::Bool=true`: flag to show the boundary box of the lattice
 - `show_neighbors::Bool=true`: flag to show the nearest neighbors of the lattice
@@ -732,6 +762,17 @@ function plot_opsum(opsum::OpSum, flattice::FiniteLattice;
         end
     end
 
+    # sites connected to the highlighted site by a bond of the OpSum
+    connected_sites = nothing
+    if highlight_site !== nothing
+        connected_sites = Set{Int}([highlight_site])
+        for op in opsum.ops
+            if highlight_site in op.sites
+                union!(connected_sites, op.sites)
+            end
+        end
+    end
+
     plot2d(flattice, ax; annotate_sites=false, show_boundary, show_neighbors, 
            highlight_site, only_highlighted_bonds, 
            background_lattice=true, connected_sites=connected_sites,
@@ -746,5 +787,8 @@ function plot_opsum(opsum::OpSum, flattice::FiniteLattice;
 
     if show
         display(f)
+    else
+        f = ax.parent
     end
+    return f, ax
 end

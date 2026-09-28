@@ -18,6 +18,7 @@ makedocs(
         "Operators and interactions" => "opsum.md",
         "Reading and writing files" => "io.md",
         "Plotting" => "plots.md",
+        "Examples" => "examples.md",
     ],
     checkdocs = :exports,
 )

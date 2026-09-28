@@ -132,7 +132,7 @@ write_toml(fl, opsum, (@__DIR__) * "/hyperhoneycomb-N-$N-ver-$ver.toml"; zero_ba
 # draw opsum into lattice
 
 
-plot_3d(fl, opsum; 
+f, ax = plot_3d(fl, opsum; 
     # ----- keywords for plot_3d(fl, opsum)
     cpl_dict = Dict("KX" => :blue, "KY" => :red, "KZ" => :green, "J" => :black),
     # ----- keywords for plot_3d(fl)
@@ -162,3 +162,4 @@ plot_3d(fl, opsum;
         ],=#
     scale_factor=2.0,
     )
+wait(display(f))  # keep the window open until it is closed

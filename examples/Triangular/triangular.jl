@@ -1,5 +1,6 @@
 using Revise
 using Latlib
+using GLMakie
 
 # infinite Bravais lattice for triangular lattice is predefined in lattice/predefined_lattices.jl
 infinite_lat = triangular
@@ -16,6 +17,7 @@ H += neighbor_interaction("HB", "J1", finite_lat; num_distance = 1)
 
 # print
 GLMakie.activate!()
-plot_opsum(H, finite_lat)
+f, ax = plot_opsum(H, finite_lat)
+wait(display(f))  # keep the window open until it is closed
 
 

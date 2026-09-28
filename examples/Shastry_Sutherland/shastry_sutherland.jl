@@ -1,5 +1,6 @@
 using Revise
 using Latlib
+using GLMakie
 
 # Shastry-Sutherland lattice is among predefined constants
 ss_lattice = shastry_sutherland
@@ -28,4 +29,5 @@ write_toml(fl, H, toml_path; zero_based=false)
 
 # Plot
 GLMakie.activate!()
-plot_opsum(H, fl)
+f, ax = plot_opsum(H, fl)
+wait(display(f))  # keep the window open until it is closed
