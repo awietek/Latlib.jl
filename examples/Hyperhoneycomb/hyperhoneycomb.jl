@@ -31,6 +31,12 @@ if (N, ver) == (16, 1)
         LatticeVector(hyperhoneycomb, [1, 1, -1]),  # t2
         LatticeVector(hyperhoneycomb, [-1, 1, -1]), # t3
     ]
+elseif (N, ver) == (16, 2)
+    fl_vecs = [
+        LatticeVector(hyperhoneycomb, [-1, 1, 1]),  # t1
+        LatticeVector(hyperhoneycomb, [0, 1, -1]),  # t2
+        LatticeVector(hyperhoneycomb, [-2, 2, -2]),  # t3
+    ]
 end
 
 
