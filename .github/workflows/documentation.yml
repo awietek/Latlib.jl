@@ -7,6 +7,10 @@ on:
     tags: '*'
   pull_request:
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ startsWith(github.ref, 'refs/pull/') }}
+
 jobs:
   build:
     permissions:
@@ -16,22 +20,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          version: '1.8'
-          prefix: xvfb-run -s '-screen 0 1024x768x24'
       - uses: julia-actions/setup-julia@v2
         with:
-          version: '1.8'
-          prefix: xvfb-run -s '-screen 0 1024x768x24'
-      - uses: julia-actions/cache@v1
-        with:
-          version: '1.8'
-          prefix: xvfb-run -s '-screen 0 1024x768x24'
+          version: '1.10'
+      - uses: julia-actions/cache@v2
       - name: Install dependencies
         run: julia --project=docs/ -e 'using Pkg; Pkg.develop(PackageSpec(path=pwd())); Pkg.instantiate()'
       - name: Build and deploy
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # If authenticating with GitHub Actions token
-          DOCUMENTER_KEY: ${{ secrets.DOCUMENTER_KEY }} # If authenticating with SSH deploy key
-        run: |
-          xvfb-run -s '-screen 0 1024x768x24' julia --project=docs/ docs/make.jl
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DOCUMENTER_KEY: ${{ secrets.DOCUMENTER_KEY }}
+        run: xvfb-run -s '-screen 0 1024x768x24' julia --project=docs/ docs/make.jl

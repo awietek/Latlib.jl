@@ -75,5 +75,6 @@ write_toml(fl, H, (@__DIR__) * "/honeycomb-N-$N-ver-$ver.toml"; zero_based=true)
 
 # print
 GLMakie.activate!()
-plot_opsum(H, fl)
+f, ax = plot_opsum(H, fl)
+wait(display(f))  # keep the window open until it is closed
 

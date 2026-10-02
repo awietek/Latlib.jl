@@ -21,8 +21,10 @@ Interactions = [
 ]
 ```
 
-Coordinates are obtained from `atoms(flattice)` as Vector{Euclidean} and
-converted to `Vector{Float64}`, and rounded according to `flattice.tol`.
+The file starts with comments listing the lattice vectors, atom positions, and
+boundary (torus) vectors of the finite lattice. Coordinates are obtained from
+[`atoms`](@ref)`(flattice)` and rounded according to `flattice.tol`. Interactions
+are listed as `[coupling, type, site1, site2]` for each operator in `opsum`.
 
 # Arguments
 - `flattice::FiniteLattice`: FiniteLattice object containing the lattice;
@@ -58,7 +60,12 @@ function write_toml(flattice::FiniteLattice, opsum::OpSum, filename::String; zer
     end
 end
 
-# get meta-data string
+"""
+    toml_metadata() -> String
+
+Returns the header comment written to TOML files by [`write_toml`](@ref),
+containing the date and the Latlib version.
+"""
 function toml_metadata() :: String
     date = Dates.today()
     latlib_version = get_latlib_version() # defined in utils.jl
@@ -67,7 +74,12 @@ function toml_metadata() :: String
     return meta_str
 end
 
-# output lattice parameters
+"""
+    toml_lattice(flattice::FiniteLattice; out_str::String="") -> String
+
+Appends comments describing the lattice vectors, atom positions, and boundary vectors
+of `flattice` to `out_str` and returns the result. Used by [`write_toml`](@ref).
+"""
 function toml_lattice(flattice; out_str::String="") :: String
 
     # determine rounding precision from tolerance
@@ -122,7 +134,12 @@ function toml_lattice(flattice; out_str::String="") :: String
     return out_str
 end
 
-# get `Coordinates` section for TOML file as string
+"""
+    toml_coordinates(flattice::FiniteLattice; out_str::String="") -> String
+
+Appends the `Coordinates` section (Cartesian coordinates of all sites of `flattice`)
+to `out_str` and returns the result. Used by [`write_toml`](@ref).
+"""
 function toml_coordinates(flattice::FiniteLattice; out_str::String="") :: String
     
     # determine rounding precision from tolerance
@@ -143,7 +160,12 @@ function toml_coordinates(flattice::FiniteLattice; out_str::String="") :: String
 end
 
 
-# get `Interactions` section for TOML file as string
+"""
+    toml_interactions(opsum::OpSum; zero_based::Bool=false, out_str::String="") -> String
+
+Appends the `Interactions` section (one entry `[coupling, type, site1, site2]` per operator
+in `opsum`) to `out_str` and returns the result. Used by [`write_toml`](@ref).
+"""
 function toml_interactions(opsum::OpSum; zero_based::Bool=false, out_str::String="") :: String
     
     # 0 or 1-based indexing?

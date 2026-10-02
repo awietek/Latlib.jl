@@ -31,7 +31,7 @@ function main()
     opsum += lattice_interaction("SzSz", "KZ", fl, 4, 1, [1, 0, 0]) # [1, 0, 0] is Alex's convention, others use [0, 1, 0] here
 
     # ---- plot spins in 3D lattice with Hamiltonian interactions
-    plot_3d(fl, opsum, spin_data; 
+    f, ax = plot_3d(fl, opsum, spin_data; 
         # ----- keywords for plot_3d(fl, opsum)
         cpl_dict = Dict("KX" => :blue, "KY" => :red, "KZ" => :green),
         # ----- keywords for plot_3d(fl)
@@ -45,6 +45,7 @@ function main()
         #draw_periodic_flattice_shifts=[(1,0,0),(0,1,0), (1,1,0), (0,0,1), (1,0,1), (0,1,1), (1, 1, 1)],
         scale_factor=2.0,
         )
+    wait(display(f))  # keep the window open until it is closed
 
 end
 

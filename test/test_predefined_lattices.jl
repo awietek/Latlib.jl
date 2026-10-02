@@ -43,11 +43,11 @@ using LinearAlgebra
         @test isapprox(sum(triangular.A[1, :].^2), 1.0)
         @test isapprox(sum(triangular.A[2, :].^2), 1.0)
 
-        # the angle between a1 and a2 is 120° (cos = –0.5)
+        # the angle between a1 and a2 is 60° (cos = 0.5)
         a1 = triangular.A[1, :]
         a2 = triangular.A[2, :]
         cos_theta = dot(a1, a2) / (LinearAlgebra.norm(a1) * LinearAlgebra.norm(a2))
-        @test isapprox(cos_theta, -0.5; atol=1e-10)
+        @test isapprox(cos_theta, 0.5; atol=1e-10)
 
         # single atom at origin
         @test isapprox(triangular.positions[1, :], [0.0, 0.0])

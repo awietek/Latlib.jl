@@ -3,8 +3,33 @@ using Printf
 
 abstract type Metric end
 
+"""
+    EuclideanMetric()
+
+The standard Euclidean metric. Calling an instance on two `EuclideanVector`s
+returns their Euclidean distance.
+
+```julia
+d = EuclideanMetric()
+d(EuclideanVector([0, 0]), EuclideanVector([3, 4]))   # 5.0
+```
+"""
 struct EuclideanMetric <: Metric end
 
+"""
+    PeriodicEuclideanMetric(flattice::FiniteLattice)
+
+The Euclidean metric modulo the periodic boundary vectors of a [`FiniteLattice`](@ref).
+Calling an instance on two `EuclideanVector`s (or `LatticeVector`s) returns the
+shortest distance between them, taking into account all periodic images.
+Boundary directions with open boundary conditions are treated as non-periodic.
+
+```julia
+fl = FiniteLattice(square, [4 0; 0 4], true)
+d = PeriodicEuclideanMetric(fl)
+d(EuclideanVector([0, 0]), EuclideanVector([3, 0]))   # 1.0 (across the boundary)
+```
+"""
 struct PeriodicEuclideanMetric <: Metric
     flattice::FiniteLattice 
 
@@ -16,8 +41,14 @@ function (d::EuclideanMetric)(x::EuclideanVector, y::EuclideanVector) :: Float64
     return LinearAlgebra.norm(y.coords - x.coords)
 end
 
-# return shortest path from x1 to x2 in euclidean space modulo finite lattice
-# TO-DO: fix the problem explained below!
+"""
+    distance_vector(x1::EuclideanVector, x2::EuclideanVector; flattice=nothing) -> EuclideanVector
+
+Returns the shortest vector pointing from `x1` to `x2`. If `flattice` is a
+[`FiniteLattice`](@ref), the vector is taken modulo the periodic boundary vectors
+of the finite lattice, i.e., the returned vector connects `x1` to the closest periodic
+image of `x2`. Without `flattice`, simply `x2 - x1` is returned.
+"""
 function distance_vector(x1::EuclideanVector, x2::EuclideanVector; flattice=nothing) :: EuclideanVector
     r_euc = x2 - x1
     if isnothing(flattice)
@@ -73,7 +104,7 @@ end
 
 
 @doc raw"""
-    distance(x1::AbstractVector, x2::AbstractVector; periodicity_vectors=nothing)
+    distance(x1::EuclideanVector, x2::EuclideanVector; flattice=nothing)
 
 Computes the distance between two points
 
@@ -92,9 +123,9 @@ If flattice is defined (FiniteLattice), then compute the distance as the
 minimum distance between x1 and x2 assuming full periodicity along the periodicity vectors.
 In other words, this function returns
 
-`` \min{n_1, \ldots, n_p \in \mathbf{Z}} \lVert \mathbf{x}_1 - \mathbf{x}_2 + \sum_{i=1}^p n_i \mathbf{p}_i\rVert,`` 
+``\min_{n_1, \ldots, n_p \in \mathbb{Z}} \lVert \mathbf{x}_1 - \mathbf{x}_2 + \sum_{i=1}^p n_i \mathbf{p}_i\rVert,``
 
-where $\mathbf{p}_i$ are the periodicity vectors.
+where ``\mathbf{p}_i`` are the periodicity vectors.
 """
 function distance(x1::EuclideanVector, x2::EuclideanVector; flattice=nothing) :: Float64
     if isnothing(flattice)
@@ -106,12 +137,12 @@ function distance(x1::EuclideanVector, x2::EuclideanVector; flattice=nothing) ::
 end
 
 @doc """
-    distance_matrix(points::AbstractMatrix; flattice=nothing)
+    distance_matrix(points::Vector{EuclideanVector}; flattice=nothing)
 
-Computes the pairwise distances between points
+Computes the symmetric matrix of pairwise distances between points.
 
 # Arguments
-- `points::AbstractMatrix`: matrix whose columns are the points of which the distance is computed
+- `points::Vector{EuclideanVector}`: the points between which distances are computed
 
 # Keyword arguments
 - `flattice=nothing`: if defined, the `FiniteLattice` instance that defines the periodicity vectors.
@@ -137,7 +168,8 @@ end
 @doc """
     distances(points::Vector{EuclideanVector}; flattice=nothing)
 
-Computes which unique values of distances are present between the points
+Computes the sorted unique values of distances present between the points.
+The first entry is always `0.0` (the self-distance).
 
 # Arguments
 - `points::Vector{EuclideanVector}`: vector of points of which the distance is computed
@@ -152,8 +184,11 @@ end
 
 @doc """
     neighbors(points::Vector{EuclideanVector}; num_distance::Integer=1, flattice=nothing)
+    neighbors(flattice::FiniteLattice; num_distance::Integer=1)
 
 Computes which pairs of the input points are k-th nearest neighbors where k = num_distance.
+For a `FiniteLattice`, the points are its sites `atoms(flattice)` and distances are computed
+with the periodic metric of the finite lattice.
 
 # Arguments
 - `points::Vector{EuclideanVector}`: Vectors taken into account for distance computation.
