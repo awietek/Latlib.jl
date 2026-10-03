@@ -57,6 +57,8 @@ export SymmetryOperation,
         cartesian_rotation
 
 include("symmetry/pointgroups.jl")
+include("symmetry/pointgroups3d.jl")
+include("symmetry/kpoint_tables.jl")
 include("symmetry/kpoints.jl")
 include("symmetry/irreps.jl")
 export ClusterSymmetries,

@@ -28,10 +28,10 @@ are listed as `[coupling, type, site1, site2]` for each operator in `opsum`.
 
 If `symmetries` is given, a `Symmetries` section with the site permutations of the
 symmetry operations of the cluster is appended (see [`toml_symmetries`](@ref)). For symmorphic
-two-dimensional lattices, it is followed by the irreducible representations (see
-[`toml_irreps`](@ref) and [`irreps`](@ref)), unless `irreps=false`. Irreducible representations
-are not implemented for non-symmorphic space groups and three-dimensional lattices yet; in these
-cases only the symmetry operations are written and a warning is issued.
+space groups, it is followed by the irreducible representations (see [`toml_irreps`](@ref) and
+[`irreps`](@ref)), unless `irreps=false`. Irreducible representations are not implemented for
+non-symmorphic space groups yet; in this case only the symmetry operations are written and a
+warning is issued. Skipped three-dimensional irreps are reported in a banner at the top of the file.
 
 # Arguments
 - `flattice::FiniteLattice`: FiniteLattice object containing the lattice;
@@ -78,21 +78,23 @@ function write_toml(flattice::FiniteLattice, opsum::OpSum, filename::String; zer
         throw(ArgumentError("`symmetries` must be `nothing`, `true`, `false`, a `FiniteSpaceGroup` or a `ClusterSymmetries`."))
     end
 
-    # irreducible representations: only for symmorphic two-dimensional lattices so far
+    # irreducible representations: only for symmorphic space groups so far
     if symmetries isa FiniteSpaceGroup && irreps
         sg = symmetries.spacegroup
         if !sg.symmorphic
             @warn "Irreducible representations are not implemented for non-symmorphic space groups yet (the lattice has the group $(sg.symbol)). Only the symmetry operations are written."
-        elseif dim(flattice) != 2
-            @warn "Irreducible representations are not implemented for three-dimensional lattices yet. Only the symmetry operations are written."
         else
             symmetries = Latlib.symmetries(symmetries; origin=origin)
         end
     end
+    sectors = symmetries isa ClusterSymmetries && irreps ? _sectors(symmetries) : nothing
 
     # write meta-data to TOML file
     out_str = toml_metadata()
     out_str *= "\n"
+    if !isnothing(sectors) && !isempty(_skipped_labels(sectors))
+        out_str *= _skipped_banner(_skipped_labels(sectors)) * "\n"
+    end
 
     # write lattice data to TOML file
     out_str = toml_lattice(flattice; out_str=out_str)
@@ -114,7 +116,7 @@ function write_toml(flattice::FiniteLattice, opsum::OpSum, filename::String; zer
         out_str = toml_symmetries(symmetries; zero_based=zero_based, out_str=out_str)
         if irreps
             out_str *= "\n"
-            out_str = toml_irreps(symmetries; zero_based=zero_based, out_str=out_str)
+            out_str = _toml_irreps(sectors; zero_based=zero_based, out_str=out_str)
         end
     end
 
@@ -367,16 +369,25 @@ momentum = [1.5832138822983011, 0.0000000000000000]
 
 The indices of the allowed symmetries follow `zero_based`. Irreducible representations that
 vanish on the cluster are left out and listed in a comment block; its format is a
-placeholder and may change.
+placeholder and may change. Skipped three-dimensional irreps are listed in a banner, and a
+warning is issued.
 """
 function toml_irreps(cs::ClusterSymmetries; zero_based::Bool=false, out_str::String="") :: String
+    return _toml_irreps(_sectors(cs); zero_based=zero_based, out_str=out_str)
+end
+
+function _toml_irreps(sectors; zero_based::Bool=false, out_str::String="") :: String
     offset = zero_based ? 1 : 0
-    sectors = _sectors(cs)
     out_str *= "# Irreducible representations\n"
-    vanishing = [irrep.label for (irrep, vanishes) in sectors if vanishes]
+    skipped = _skipped_labels(sectors)
+    if !isempty(skipped)
+        _warn_skipped(skipped)
+        out_str *= _skipped_banner(skipped)
+    end
+    vanishing = [irrep.label for (irrep, status) in sectors if status == :vanishing]
     isempty(vanishing) || (out_str *= toml_omitted_irreps_placeholder(vanishing))
-    for (irrep, vanishes) in sectors
-        vanishes && continue
+    for (irrep, status) in sectors
+        status == :ok || continue
         if irrep.dimension == 2 && endswith(irrep.name, "a")
             out_str *= "# $(irrep.kpoint).$(irrep.littlegroup).$(irrep.parent) is two-dimensional: its partners $(irrep.parent)a and $(irrep.parent)b\n"
             out_str *= "# are sectors of a subgroup of the little group and are exactly degenerate.\n"
@@ -392,6 +403,19 @@ function toml_irreps(cs::ClusterSymmetries; zero_based::Bool=false, out_str::Str
         out_str *= "\n"
     end
     return out_str
+end
+
+# banner for skipped three-dimensional irreps
+function _skipped_banner(skipped::Vector{String}) :: String
+    line = "# " * "!"^90 * "\n"
+    s  = line
+    s *= "# !!! WARNING: three-dimensional irreducible representations were SKIPPED, since they cannot be\n"
+    s *= "# !!! written as one-dimensional characters. The irreducible representations in this file\n"
+    s *= "# !!! do NOT span the full Hilbert space. Skipped:\n"
+    for label in skipped
+        s *= "# !!!   " * label * "\n"
+    end
+    return s * line
 end
 
 """

@@ -32,10 +32,9 @@ indices.
 
 With `symmetries=true`, a `Symmetries` section with the site permutations of the
 symmetry operations of the cluster is appended (see [Symmetries](symmetries.md)). For
-symmorphic two-dimensional lattices, the irreducible representations follow, unless
-`irreps=false`. For non-symmorphic space groups and three-dimensional lattices, only the
-symmetry operations are written, with a warning that irreducible representations are not
-implemented for them yet.
+symmorphic space groups, the irreducible representations follow, unless `irreps=false`. For
+non-symmorphic space groups, only the symmetry operations are written, with a warning that
+irreducible representations are not implemented for them yet.
 
 ```julia
 fl = FiniteLattice(maple_leaf, [1 1; 1 -2], true)

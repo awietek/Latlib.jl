@@ -8,6 +8,7 @@
 #  - XDiag reads every irreducible representation (XDiag verifies that the characters form a
 #    one-dimensional representation of the group of allowed symmetries),
 #  - the dimensions of all sectors, weighted with the sizes of the stars, add up to 2^N,
+# (for three-dimensional lattices with skipped three-dimensional irreps, only that XDiag reads every sector)
 # and, for the legacy maple-leaf cluster, that the ground-state energies of all sectors agree
 # with those obtained from the legacy file.
 
@@ -34,8 +35,14 @@ function check(name, fl, cs)
     for label in sector_labels(file)
         total += starsize[split(label, ".")[1]] * size(Spinhalf(N, read_representation(f, label)))
     end
-    println(rpad(name, 22), length(sector_labels(file)), " sectors read by XDiag, Σ|star|·dim = ", total,
-            total == 2^N ? " = 2^$N" : " ≠ 2^$N  FAILED")
+    if occursin("SKIPPED", read(file, String))
+        # three-dimensional irreps (cubic little co-groups) are skipped: the sectors cannot span the full space
+        println(rpad(name, 22), length(sector_labels(file)), " sectors read by XDiag, Σ|star|·dim = ", total,
+                " < 2^$N (three-dimensional irreps skipped)", total < 2^N ? "" : "  FAILED")
+    else
+        println(rpad(name, 22), length(sector_labels(file)), " sectors read by XDiag, Σ|star|·dim = ", total,
+                total == 2^N ? " = 2^$N" : " ≠ 2^$N  FAILED")
+    end
     return file
 end
 
@@ -47,6 +54,10 @@ clusters = [
     ("kagome_12", FiniteLattice(kagome, [2 0; 0 2], true), nothing),
     ("square_16", FiniteLattice(square, [4 0; 0 4], true), site(square)),
     ("square_8_thin", FiniteLattice(square, [4 0; 0 2], true), site(square)),
+    ("simple_hexagonal_18", FiniteLattice(simple_hexagonal, [3 0 0; 0 3 0; 0 0 2], true), LatticeVector(simple_hexagonal, [0.0, 0.0, 0.0])),
+    ("simple_cubic_12", FiniteLattice(simple_cubic, [3 0 0; 0 2 0; 0 0 2], true), LatticeVector(simple_cubic, [0.0, 0.0, 0.0])),
+    ("bcc_16", FiniteLattice(bcc, 2 * [0 1 1; 1 0 1; 1 1 0], true), nothing),
+    ("fcc_8", FiniteLattice(fcc, [2 0 0; 0 2 0; 0 0 2], true), LatticeVector(fcc, [0.0, 0.0, 0.0])),
 ]
 files = Dict(name => check(name, fl, symmetries(fl; origin=origin)) for (name, fl, origin) in clusters)
 

@@ -125,6 +125,93 @@ function _kpoint_label_2d(lattice::Lattice, holo::_Holohedry, k::AbstractVector)
 end
 
 
+_kpoint_label(lattice::Lattice, holo::_Holohedry, k::AbstractVector) = _kpoint_label_2d(lattice, holo, k)
+
+
+# ----------------------------------------------------------------------
+#      Holohedry and labels of momenta in three dimensions
+#      (CDML labels of the Bilbao Crystallographic Server, see kpoint_tables.jl)
+# ----------------------------------------------------------------------
+
+# A family of momenta (special point, line or plane) k0 + Σ_i t_i d_i, prepared for exact
+# membership tests modulo reciprocal lattice vectors in the coordinates κ = A k / 2π
+struct _KFamily
+    label::String
+    k0::Vector{Float64}           # Cartesian
+    directions::Matrix{Int}       # columns: primitive integer directions in κ coordinates
+    order::Int                    # order of the little co-group in the holohedry
+end
+
+struct _Holohedry3D
+    number::Int                           # space group of the Bravais lattice (one of the 14 holohedries)
+    rotations::Vector{Matrix{Float64}}    # Cartesian point group of the Bravais lattice
+    conventional::Matrix{Float64}         # columns: conventional lattice vectors (ITA standard setting, Cartesian)
+    principal::Vector{Float64}            # c (b for monoclinic lattices)
+    secondary::Vector{Vector{Float64}}    # unit vectors along a, b, c (and a + b for hexagonal lattices)
+    hexagonal::Bool
+    families::Vector{_KFamily}            # points, then lines, then planes
+end
+
+# primitive integer vector parallel to the rational vector v
+function _integer_direction(v::AbstractVector) :: Vector{Int}
+    r = rationalize.(v; tol=1e-8)
+    n = [numerator(x) * (lcm(denominator.(r)) ÷ denominator(x)) for x in r]
+    return n .÷ gcd(n)
+end
+
+function _holohedry3d(lattice::Lattice) :: _Holohedry3D
+    bravais = Lattice(lattice.A)
+    cell, latmat = _spglib_cell(bravais)
+    dataset = Spglib.get_dataset(cell, 1e-5)
+    number = dataset.spacegroup_number
+    haskey(_KPOINT_LABELS_3D, number) || error("Unexpected space group $number of a Bravais lattice. This is a bug, please report!")
+    C = latmat * inv(dataset.transformation_matrix)   # conventional basis in the Cartesian frame of the lattice
+    Rs = [cartesian_rotation(op, bravais) for op in operations(spacegroup(bravais))]
+    hexagonal = number in (166, 191)
+    principal = number in (10, 12) ? C[:, 2] : C[:, 3]
+    secondary = normalize.(hexagonal ? [C[:, 1], C[:, 2], C[:, 1] + C[:, 2], C[:, 3]] : [C[:, 1], C[:, 2], C[:, 3]])
+    Cstar = 2π * inv(C)'
+    families = _KFamily[]
+    for (label, k0, ds, order) in sort(_KPOINT_LABELS_3D[number]; by=f -> length(f[3]))
+        label == "Gamma" && continue
+        k0c = Cstar * k0
+        directions = isempty(ds) ? zeros(Int, 3, 0) : hcat([_integer_direction(lattice.A * (Cstar * d) / (2π)) for d in ds]...)
+        push!(families, _KFamily(label, k0c, directions, order))
+    end
+    return _Holohedry3D(number, Rs, C, principal, secondary, hexagonal, families)
+end
+
+# whether the momentum q (Cartesian) lies in the family f, modulo reciprocal lattice vectors
+function _in_family(lattice::Lattice, f::_KFamily, q::AbstractVector) :: Bool
+    x = lattice.A * (q - f.k0) / (2π)
+    m = size(f.directions, 2)
+    if m == 0
+        return all(is_whole.(x; atol=1e-8))
+    elseif m == 1
+        # x - t e ∈ Z^3 for some t: t is fixed by one component up to |e_j| choices
+        e = f.directions[:, 1]
+        j = argmax(abs.(e))
+        return any(n -> all(is_whole.(x - (x[j] - n) / e[j] * e; atol=1e-8)), 0:abs(e[j]) - 1)
+    else
+        # x ∈ plane + Z^3 iff w·x ∈ Z for the primitive integer normal w
+        w = cross(f.directions[:, 1], f.directions[:, 2])
+        w = w .÷ gcd(w)
+        return is_whole(dot(w, x); atol=1e-8)
+    end
+end
+
+function _kpoint_label(lattice::Lattice, holo::_Holohedry3D, k::AbstractVector) :: String
+    _isreciprocal(lattice, k) && return "Gamma"
+    for f in holo.families
+        any(R -> _in_family(lattice, f, R * k), holo.rotations) && return f.label
+    end
+    return "GP"
+end
+
+# order of the little co-group of k in the holohedry (used to check the labels)
+_holohedry_littlegroup_order(lattice::Lattice, rotations, k::AbstractVector) = count(R -> _isreciprocal(lattice, R * k - k), rotations)
+
+
 # ----------------------------------------------------------------------
 #                       Momenta of a finite lattice
 # ----------------------------------------------------------------------
@@ -185,7 +272,7 @@ end
 # Momenta of a finite lattice with point group `pointgroup` (lattice basis)
 function _momenta(flattice::FiniteLattice, pointgroup::Vector{Matrix{Int}}) :: Vector{ClusterMomentum}
     lattice = flattice.lattice
-    holo = _holohedry(lattice)
+    holo = dim(lattice) == 2 ? _holohedry(lattice) : _holohedry3d(lattice)
     coords = _cluster_coords(flattice.boundary)
     cartesian(κ) = 2π * (lattice.A \ Float64.(κ))
     images = [_first_bz(lattice, cartesian(κ)) for κ in coords]
@@ -215,7 +302,7 @@ function _momenta(flattice::FiniteLattice, pointgroup::Vector{Matrix{Int}}) :: V
     end
 
     # labels; numbered among representatives if repeated, generic momenta always numbered
-    base = [_kpoint_label_2d(lattice, holo, cartesian(κ)) for κ in coords]
+    base = [_kpoint_label(lattice, holo, cartesian(κ)) for κ in coords]
     counts = Dict{String, Int}()
     for i in order
         representative[i] && (counts[base[i]] = get(counts, base[i], 0) + 1)
@@ -236,7 +323,7 @@ function _momenta(flattice::FiniteLattice, pointgroup::Vector{Matrix{Int}}) :: V
     for (i, κ) in enumerate(coords)
         little = [W for W in pointgroup if all(iszero, mod.(W' * κ - κ, 1))]
         Rs = [lattice.A' * W / lattice.A' for W in little]
-        push!(result, ClusterMomentum(κ, images[i], labels[i], star[i], representative[i], little, _pointgroup_name_2d(Rs)))
+        push!(result, ClusterMomentum(κ, images[i], labels[i], star[i], representative[i], little, _pointgroup_name(Rs)))
     end
     return result
 end

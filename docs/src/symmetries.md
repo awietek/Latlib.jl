@@ -88,7 +88,7 @@ For exact diagonalization, the Hilbert space of a cluster is split into sectors 
 the irreducible representations (irreps) of its space group. [`symmetries`](@ref) prepares the
 symmetry operations of a periodic finite lattice, [`momenta`](@ref) lists the momenta it
 resolves, and [`irreps`](@ref) returns the sectors with their characters. This is implemented
-for two-dimensional lattices with a symmorphic plane group.
+for two- and three-dimensional lattices with a symmorphic space group.
 
 ```@example symmetries
 cs = symmetries(FiniteLattice(maple_leaf, [1 1; 1 -2], true))
@@ -100,25 +100,30 @@ momenta under the point group of the cluster. Two momenta that are related by a 
 the infinite lattice but not of the cluster belong to different stars. A sector is labelled
 `"<momentum>.<little co-group>.<irrep>"`:
 
-- **Momenta** are labelled following the Bilbao Crystallographic Server for the Bravais lattice
-  (e.g. `Gamma`, `K`, `M` for the hexagonal lattice and `Sigma`, `Lambda`, `T` on the lines
-  between them). Generic momenta are labelled `GP0`, `GP1`, …; other labels are numbered only
-  if they occur more than once.
-- **Little co-groups** are named by their Schoenflies symbol: `C1`, `C2`, `C3`, `C4`, `C6`,
-  `Cs`, `C2v`, `C3v`, `C4v`, `C6v`.
-- **Irreps** carry their Mulliken symbol, with the orientation conventions of the Bilbao
-  Crystallographic Server and `p`/`pp` for primes (`Ap`, `App`). The complex conjugate pairs of
-  the rotation groups are labelled `a`/`b` (e.g. `E1a`, `E1b`), where `a` belongs to
-  ``\exp(+2\pi i m/n)`` on the counter-clockwise rotation by ``2\pi/n``.
-- **Two-dimensional irreps** (`E`, `E1`, `E2` of `C3v`, `C4v`, `C6v`) are represented by two
-  exactly degenerate partners `a`/`b`, one-dimensional representations of the rotation subgroup.
+- **Momenta** are labelled following the Bilbao Crystallographic Server (CDML notation) for the
+  Bravais lattice, e.g. `Gamma`, `K`, `M` for the hexagonal lattice and `Sigma`, `Lambda`, `T` on
+  the lines between them, or `Gamma`, `H`, `N`, `P` for the body-centered cubic lattice. Generic
+  momenta are labelled `GP0`, `GP1`, …; other labels are numbered only if they occur more than once.
+- **Little co-groups** are named by their Schoenflies symbol, e.g. `C2v`, `C6v`, `D4h`, `Oh`.
+- **Irreps** carry their Mulliken symbol, with the orientation conventions of the character
+  tables of the Bilbao Crystallographic Server and `p`/`pp` for primes (`Ap`, `App`, `A1pp`).
+  The complex conjugate pairs of one-dimensional irreps are labelled `a`/`b` (e.g. `E1a`, `E1b`,
+  `Ega`), where `a` belongs to ``\exp(+2\pi i m/n)`` on the rotation by ``+2\pi/n`` about the
+  principal axis.
+- **Two-dimensional irreps** (e.g. `E1` of `C6v`, `Eg` of `D4h`) are represented by two exactly
+  degenerate partners `a`/`b`, one-dimensional representations of the subgroup
+  ``\ker(\det E)`` (e.g. `C6`, `C4h`).
+- **Three-dimensional irreps** (`T` irreps of the cubic little co-groups) cannot be written as
+  one-dimensional characters. They are skipped with a warning; TOML files get a prominent banner.
 
 The character of an operation ``\mathcal{X} \mapsto W(\mathcal{X} - \mathbf{c}) + \mathbf{c} + \mathbf{t}``,
 written relative to the symmetry center ``\mathbf{c}``, is ``\rho(W)\, e^{+i\mathbf{k}\cdot\mathbf{t}}``.
 
 The symmetry center is a point with the full point-group symmetry of the lattice. If it is
 unique, it is chosen automatically, like the center of a hexagon of the maple-leaf lattice
-above. Otherwise it has to be given, e.g. for the square lattice (site or plaquette center):
+above or the site of the body-centered cubic lattice. Otherwise it has to be given, e.g. for the
+square lattice (site or plaquette center) or the simple cubic, face-centered cubic and simple
+hexagonal lattices:
 
 ```@example symmetries
 cs = symmetries(FiniteLattice(square, [4 0; 0 4], true); origin=LatticeVector(square, [0.0, 0.0]))
@@ -128,18 +133,25 @@ cs = symmetries(FiniteLattice(square, [4 0; 0 4], true); origin=LatticeVector(sq
 On small or thin clusters, irreps that are not trivial on operations acting trivially on the
 sites vanish; they are left out.
 
+Three-dimensional lattices work the same way:
+
+```@example symmetries
+cs = symmetries(FiniteLattice(bcc, 2 * [0 1 1; 1 0 1; 1 1 0], true))   # 16 sites
+[(k.label, k.littlegroup_name) for k in momenta(cs) if k.representative]
+```
+
 ## Writing symmetries to TOML files
 
 Pass `symmetries=true` to [`write_toml`](@ref) to append the site permutations of the cluster's
 symmetry operations as a `Symmetries` section (see [`toml_symmetries`](@ref)). This works for
 every lattice:
 
-- **Symmorphic two-dimensional lattices**: the irreducible representations are written as well
-  (see [`toml_irreps`](@ref)), unless `irreps=false`. If the symmetry center is ambiguous, it is
-  passed with the keyword `origin`.
-- **Non-symmorphic space groups and three-dimensional lattices**: only the symmetry operations
-  are written, and a warning states that irreducible representations are not implemented for
-  them yet.
+- **Symmorphic space groups**: the irreducible representations are written as well (see
+  [`toml_irreps`](@ref)), unless `irreps=false`. If the symmetry center is ambiguous, it is passed
+  with the keyword `origin`. Skipped three-dimensional irreps are listed in a banner at the top
+  of the file.
+- **Non-symmorphic space groups**: only the symmetry operations are written, and a warning states
+  that irreducible representations are not implemented for them yet.
 
 Instead of `true`, a precomputed [`FiniteSpaceGroup`](@ref) or [`ClusterSymmetries`](@ref) can be
 passed.

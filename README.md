@@ -31,6 +31,11 @@ exact diagonalization or other many-body codes such as
   symmetry group of a periodic cluster, including site permutations, with
   [spglib](https://spglib.readthedocs.io) (`spacegroup`). Symmorphic and
   non-symmorphic groups are supported.
+- **Irreducible representations**: momenta, little groups and characters of the
+  irreducible representations of the space group of a periodic cluster, labelled
+  in the conventions of the Bilbao Crystallographic Server (`symmetries`, `irreps`),
+  for symmorphic space groups in 2D and 3D, written to TOML files for exact
+  diagonalization codes like [XDiag](https://github.com/awietek/xdiag).
 - **Interactions**: build an `OpSum` of two-body operators from nearest
   neighbor rules (`neighbor_interaction`) or from explicit bonds between atoms
   in the unit cell (`lattice_interaction`), e.g. for Kitaev-type models.

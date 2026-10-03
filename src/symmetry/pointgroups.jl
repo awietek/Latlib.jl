@@ -278,6 +278,7 @@ struct _PointGroupSector
 end
 
 # all sectors of a two-dimensional point group given by its elements in the lattice basis
+# (and the names of skipped three-dimensional irreps, of which there are none in 2D)
 function _pointgroup_sectors(Ws::Vector{Matrix{Int}}, lattice::Lattice, ctx::_NamingContext)
     G = _FiniteGroup(Ws)
     Ws = G.elements
@@ -312,5 +313,5 @@ function _pointgroup_sectors(Ws::Vector{Matrix{Int}}, lattice::Lattice, ctx::_Na
     end
     names = [s.name for s in sectors]
     allunique(names) || error("Ambiguous irrep names $names for $gname. This is a bug, please report!")
-    return gname, Ws, sort(sectors; by=s -> s.name)
+    return gname, Ws, sort(sectors; by=s -> s.name), String[]
 end

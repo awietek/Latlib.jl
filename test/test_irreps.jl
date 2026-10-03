@@ -180,7 +180,7 @@ const LEGACY_FILES = ["maple.leaf.JhexagonJtriangleJdimer.12.v1.2sl.toml",
 
     @testset "unsupported cases" begin
         @test_throws ArgumentError symmetries(FiniteLattice(shastry_sutherland_non_symmorphic, [2 0; 0 2], true))   # p4gm
-        @test_throws ArgumentError symmetries(FiniteLattice(simple_cubic, [2 0 0; 0 2 0; 0 0 2], true))           # 3D
+        @test_throws ArgumentError symmetries(FiniteLattice(diamond, [-1 1 1; 1 -1 1; 1 1 -1], true))            # Fd-3m
         @test_throws ArgumentError symmetries(FiniteLattice(triangular, [3 0; 0 3], [true, false]))              # open
         # non-primitive unit cell: only translations by lattice vectors are used
         fl = FiniteLattice(shastry_sutherland, [2 0; 0 2], true)
@@ -317,11 +317,127 @@ const LEGACY_FILES = ["maple.leaf.JhexagonJtriangleJdimer.12.v1.2sl.toml",
             @test (@test_logs toml(fl; symmetries=true, irreps=false)) == s
         end
 
-        # three-dimensional symmorphic: only the symmetry operations, with a warning
+        # three-dimensional symmorphic: irreps, with a banner and a warning for skipped three-dimensional irreps
         fl = FiniteLattice(simple_cubic, [2 0 0; 0 2 0; 0 0 2], true)
-        s = @test_logs (:warn, r"not implemented for three-dimensional lattices") toml(fl; symmetries=true)
+        @test_throws ArgumentError toml(fl; symmetries=true)                                     # ambiguous center
+        s = @test_logs (:warn, r"Three-dimensional irreducible representations are skipped") toml(fl; symmetries=true, origin=LatticeVector(simple_cubic, [0.0, 0.0, 0.0]))
         @test length(TOML.parse(s)["Symmetries"]) == 48
-        @test occursin("PLACEHOLDER (TOML format to be decided): omitted symmetry operations", s)
-        @test !occursin("# Irreducible representations\n", s)
+        @test occursin("# Irreducible representations\n", s)
+        @test count("WARNING: three-dimensional irreducible representations were SKIPPED", s) == 2   # top of the file and irreps
+        @test occursin("# !!!   Gamma.Oh.T1u\n", s)
+        s_noirreps = @test_logs toml(fl; symmetries=true, irreps=false)
+        @test !occursin("# Irreducible representations\n", s_noirreps) && !occursin("SKIPPED", s_noirreps)
+    end
+
+    @testset "three-dimensional lattices" begin
+        o(lattice) = LatticeVector(lattice, [0.0, 0.0, 0.0])
+        tetragonal = Lattice([1.0 0 0; 0 1 0; 0 0 1.7])
+        bct = Lattice([-0.5 0.5 0.8; 0.5 -0.5 0.8; 0.5 0.5 -0.8])
+        orthorhombic = Lattice([1.0 0 0; 0 1.3 0; 0 0 1.7])
+        α = 1.2
+        rhombohedral = Lattice([1.0 0 0; cos(α) sin(α) 0;
+                                cos(α) (cos(α) - cos(α)^2) / sin(α) sqrt(1 - cos(α)^2 - ((cos(α) - cos(α)^2) / sin(α))^2)])
+        monoclinic = Lattice([1.0 0 0; 0 1.4 0; 0.3 0 1.9])
+        triclinic = Lattice([1.0 0 0; 0.2 1.3 0; 0.3 0.4 1.6])
+        cases = [
+            # (lattice, boundary, origin, representatives, sectors, skipped 3D irreps, vanishing sectors)
+            (simple_cubic, [2 0 0; 0 2 0; 0 0 2], o(simple_cubic), ["Gamma.Oh", "M.D4h", "R.Oh", "X.D4h"], 12, 8, 28),
+            (simple_cubic, [3 0 0; 0 3 0; 0 0 3], o(simple_cubic), ["Delta.C4v", "Gamma.Oh", "Lambda.C3v", "Sigma.C2v"], 22, 4, 0),
+            (simple_cubic, [4 0 0; 0 2 0; 0 0 2], o(simple_cubic), ["Delta.C4v", "Gamma.D4h", "M0.D2h", "M1.D4h", "R.D4h", "T.C4v", "X0.D4h", "X1.D2h", "Z.C2v"], 25, 0, 55),
+            (bcc, 2 * [0 1 1; 1 0 1; 1 1 0], nothing, ["Delta.C4v", "Gamma.Oh", "H.Oh", "N.D2h", "P.Td"], 34, 10, 0),
+            (fcc, [-2 2 2; 2 -2 2; 2 2 -2], o(fcc), ["Delta.C4v", "Gamma.Oh", "L.D3d", "Sigma.C2v", "W.D2d", "X.D4h"], 44, 4, 0),
+            (simple_hexagonal, [3 0 0; 0 3 0; 0 0 2], o(simple_hexagonal), ["A.D6h", "Gamma.D6h", "H.D3h", "K.D3h", "R.C2v", "Sigma.C2v"], 28, 0, 28),
+            (tetragonal, [2 0 0; 0 2 0; 0 0 3], o(tetragonal), ["Gamma.D4h", "Lambda.C4v", "M.D4h", "V.C4v", "W.C2v", "X.D2h"], 15, 0, 33),
+            (bct, [2 0 0; 0 2 0; 0 0 2], o(bct), ["Gamma.D4h", "M.D4h", "N.C2h", "X.D2h"], 18, 0, 18),
+            (orthorhombic, [2 0 0; 0 2 0; 0 0 3], o(orthorhombic), ["G.C2v", "Gamma.D2h", "H.C2v", "Lambda.C2v", "Q.C2v", "S.D2h", "X.D2h", "Y.D2h"], 12, 0, 36),
+            (rhombohedral, [2 0 0; 0 2 0; 0 0 2], o(rhombohedral), ["F.C2h", "Gamma.D3d", "L.C2h", "T.D3d"], 12, 0, 12),
+            (monoclinic, [2 0 0; 0 2 0; 0 0 2], o(monoclinic), ["A.C2h", "B.C2h", "C.C2h", "D.C2h", "E.C2h", "Gamma.C2h", "Y.C2h", "Z.C2h"], 8, 0, 24),
+            (triclinic, [2 0 0; 0 2 0; 0 0 2], o(triclinic), ["Gamma.Ci", "R.Ci", "T.Ci", "U.Ci", "V.Ci", "X.Ci", "Y.Ci", "Z.Ci"], 8, 0, 8),
+        ]
+        for (lattice, boundary, origin, representatives, nsectors, nskipped, nvanishing) in cases
+            fl = FiniteLattice(lattice, boundary, true)
+            cs = symmetries(fl; origin=origin)
+            ks = momenta(cs)
+            N = length(atoms(fl))
+            P = cs.permutations
+            @test sort(["$(k.label).$(k.littlegroup_name)" for k in ks if k.representative]) == representatives
+
+            # labels: the little co-group in the holohedry has the order given in the table of the label
+            holo = Latlib._holohedry3d(lattice)
+            order = Dict(f.label => f.order for f in holo.families)
+            for k in ks
+                base = match(r"^(.*?)\d*$", k.label)[1]
+                expected = base == "Gamma" ? length(holo.rotations) : base == "GP" ? 1 : order[base]
+                @test Latlib._holohedry_littlegroup_order(lattice, holo.rotations, k.momentum) == expected
+            end
+
+            sectors = Latlib._sectors(cs)
+            @test count(s -> s[2] == :ok, sectors) == nsectors
+            @test count(s -> s[2] == :skipped, sectors) == nskipped
+            @test count(s -> s[2] == :vanishing, sectors) == nvanishing
+            irs = nskipped > 0 ? (@test_logs (:warn, r"skipped") irreps(cs)) : irreps(cs)
+            @test all(irrep -> characters_multiplicative(cs, irrep), irs)
+
+            # completeness per momentum: the subspace of momentum k (from the translations alone) is spanned
+            # by the sectors and the skipped three-dimensional irreps (dimension 3 × multiplicity)
+            ops = operations(cs.spacegroup)
+            translations = [j for j in eachindex(cs.operations) if ops[cs.operations[j]].W == I]
+            total = 0.0
+            for k in ks
+                k.representative || continue
+                dimk = real(sum(cispi(-2 * Float64(sum(k.coords .* cs.translations[j]))) * 2.0^ncycles(P[cs.permutation_index[j]])
+                                for j in translations)) / length(translations)
+                dims = [sector_dimension(cs, irrep) for irrep in irs if irrep.kpoint == k.label]
+                @test all(d -> abs(imag(d)) < 1e-6 && abs(real(d) - round(real(d))) < 1e-6 && real(d) > -1e-6, dims)
+                rest = dimk - sum(real, dims; init=0.0)
+                @test rest > -1e-6 && abs(rest / 3 - round(rest / 3)) < 1e-6
+                any(s -> s[1].kpoint == k.label && s[2] == :skipped, sectors) || @test abs(rest) < 1e-6
+                total += count(q -> q.star == k.star, ks) * dimk
+            end
+            @test round(Int, total) == 2^N
+        end
+
+        # names of the irreps (Mulliken, Bilbao conventions)
+        names(cs, k) = sort(unique(irrep.littlegroup * "." * irrep.name for irrep in irreps(cs) if irrep.kpoint == k))
+        cs = symmetries(FiniteLattice(bcc, 2 * [0 1 1; 1 0 1; 1 1 0], true))
+        @test (@test_logs (:warn,) names(cs, "Gamma")) == ["Oh.A1g", "Oh.A1u", "Oh.A2g", "Oh.A2u", "Oh.Ega", "Oh.Egb", "Oh.Eua", "Oh.Eub"]
+        @test (@test_logs (:warn,) names(cs, "P")) == ["Td.A1", "Td.A2", "Td.Ea", "Td.Eb"]
+        @test (@test_logs (:warn,) names(cs, "N")) == ["D2h.Ag", "D2h.Au", "D2h.B1g", "D2h.B1u", "D2h.B2g", "D2h.B2u", "D2h.B3g", "D2h.B3u"]
+        cs = symmetries(FiniteLattice(fcc, [-2 2 2; 2 -2 2; 2 2 -2], true); origin=o(fcc))
+        @test (@test_logs (:warn,) names(cs, "L")) == ["D3d.A1g", "D3d.A1u", "D3d.A2g", "D3d.A2u", "D3d.Ega", "D3d.Egb", "D3d.Eua", "D3d.Eub"]
+        @test (@test_logs (:warn,) names(cs, "W")) == ["D2d.A1", "D2d.A2", "D2d.B1", "D2d.B2", "D2d.Ea", "D2d.Eb"]
+        cs = symmetries(FiniteLattice(simple_hexagonal, [3 0 0; 0 3 0; 0 0 3], true); origin=o(simple_hexagonal))
+        @test names(cs, "K") == ["D3h.A1p", "D3h.A1pp", "D3h.A2p", "D3h.A2pp", "D3h.Epa", "D3h.Epb", "D3h.Eppa", "D3h.Eppb"]
+        @test names(cs, "Gamma") == ["D6h.A1g", "D6h.A1u", "D6h.A2g", "D6h.A2u", "D6h.B1g", "D6h.B1u", "D6h.B2g", "D6h.B2u",
+                                     "D6h.E1ga", "D6h.E1gb", "D6h.E1ua", "D6h.E1ub", "D6h.E2ga", "D6h.E2gb", "D6h.E2ua", "D6h.E2ub"]
+
+        # Bilbao 6/mmm: B1g is even under the twofold axes 2_120 (perpendicular to a, b or a + b),
+        # odd under 2_100 (along a, b or a + b)
+        lattice = simple_hexagonal
+        ops = operations(cs.spacegroup)
+        B1g = only(irrep for irrep in irreps(cs) if irrep.label == "Gamma.D6h.B1g")
+        a, b = lattice.A[1, :], lattice.A[2, :]
+        for (j, opindex) in enumerate(cs.operations)
+            R = lattice.A' * ops[opindex].W / lattice.A'
+            (det(R) > 0 && round(Int, tr(R)) == -1 && iszero(cs.translations[j])) || continue
+            axis = nullspace(R - I)[:, 1]
+            abs(axis[3]) > 1e-8 && continue                      # the twofold axis along c
+            χ = B1g.characters[findfirst(==(cs.permutation_index[j]), B1g.allowed_symmetries)]
+            along_100 = any(v -> norm(cross(axis, v)) < 1e-8, [a, b, a + b])
+            @test χ ≈ (along_100 ? -1 : 1)
+        end
+
+        # TOML with skipped three-dimensional irreps: banner at the top and in the irreps section
+        fl = FiniteLattice(bcc, 2 * [0 1 1; 1 0 1; 1 1 0], true)
+        s = @test_logs (:warn, r"skipped") write_toml(fl, neighbor_interaction("SdotS", "J", fl), ""; zero_based=true, return_string=true, symmetries=true)
+        @test count("WARNING: three-dimensional irreducible representations were SKIPPED", s) == 2
+        @test findfirst("SKIPPED", s)[1] < findfirst("Coordinates", s)[1]
+        data = TOML.parse(s)
+        @test haskey(data["P"]["Td"], "Ea") && !haskey(data["P"]["Td"], "T1")
+        # no banner without three-dimensional irreps
+        fl = FiniteLattice(simple_hexagonal, [3 0 0; 0 3 0; 0 0 2], true)
+        s = @test_logs write_toml(fl, neighbor_interaction("SdotS", "J", fl), ""; zero_based=true, return_string=true,
+                                  symmetries=true, origin=o(simple_hexagonal))
+        @test !occursin("SKIPPED", s) && haskey(TOML.parse(s)["K"]["D3h"], "A1p")
     end
 end

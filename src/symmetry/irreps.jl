@@ -107,7 +107,7 @@ Determine the symmetry operations of a periodic finite lattice (or take them fro
 [`FiniteSpaceGroup`](@ref)) and prepare them for the irreducible representations of its space
 group, see [`irreps`](@ref) and [`momenta`](@ref).
 
-Only two-dimensional lattices with a symmorphic plane group are supported so far.
+Two- and three-dimensional lattices with a symmorphic space group are supported so far.
 
 Every operation is written relative to a symmetry center, a point with the full point-group
 symmetry of the lattice. Its choice affects the labels of the irreducible representations
@@ -130,17 +130,11 @@ cs = symmetries(FiniteLattice(square, [4 0; 0 4], true); origin=LatticeVector(sq
 ```
 """
 function symmetries(flattice::FiniteLattice; origin=nothing, symprec::Float64=1e-5) :: ClusterSymmetries
-    if dim(flattice.lattice) != 2
-        throw(ArgumentError("Irreducible representations are only implemented for two-dimensional lattices so far."))
-    end
     return symmetries(spacegroup(flattice; symprec=symprec); origin=origin)
 end
 
 function symmetries(g::FiniteSpaceGroup; origin=nothing) :: ClusterSymmetries
     lattice = g.flattice.lattice
-    if dim(lattice) != 2
-        throw(ArgumentError("Irreducible representations are only implemented for two-dimensional lattices so far."))
-    end
     sg = g.spacegroup
     if !sg.symmorphic
         throw(ArgumentError("The plane group $(sg.symbol) of the lattice is non-symmorphic. Irreducible representations are only implemented for symmorphic groups so far."))
@@ -174,7 +168,7 @@ function symmetries(g::FiniteSpaceGroup; origin=nothing) :: ClusterSymmetries
     trivial = [j for j in eachindex(used) if permutation_index[j] == 1]
 
     pointgroup = unique(operations(g)[k].W for k in used)
-    pointgroup_name = _pointgroup_name_2d([lattice.A' * W / lattice.A' for W in pointgroup])
+    pointgroup_name = _pointgroup_name([lattice.A' * W / lattice.A' for W in pointgroup])
     return ClusterSymmetries(g, c, used, translations, permutations, permutation_index, trivial, pointgroup, pointgroup_name)
 end
 
@@ -245,17 +239,22 @@ function _kpoint_sortkey(label::String)
     return (label == "Gamma" ? 0 : base == "GP" ? 2 : 1, base, number)
 end
 
-# all sectors of the representatives of the stars, with a flag whether the sector vanishes
-# on the cluster (because it is not trivial on operations acting trivially on the sites)
+# All sectors of the representatives of the stars, with a status:
+#  :ok         the sector is written,
+#  :vanishing  the sector vanishes on the cluster, because it is not trivial on operations
+#              acting trivially on the sites,
+#  :skipped    a three-dimensional irrep of the little co-group (no characters).
 function _sectors(cs::ClusterSymmetries)
     lattice = cs.spacegroup.flattice.lattice
-    holo = _holohedry(lattice)
+    holo = dim(lattice) == 2 ? _holohedry(lattice) : _holohedry3d(lattice)
     ops = operations(cs.spacegroup)
-    result = Tuple{Irrep, Bool}[]
+    result = Tuple{Irrep, Symbol}[]
     for k in momenta(cs)
         k.representative || continue
-        ctx = _NamingContext(holo.type, holo.conventional, holo.shortest, k.label == "Gamma" ? nothing : k.momentum)
-        gname, Ws, sectors = _pointgroup_sectors(k.littlegroup, lattice, ctx)
+        kvec = k.label == "Gamma" ? nothing : k.momentum
+        ctx = dim(lattice) == 2 ? _NamingContext(holo.type, holo.conventional, holo.shortest, kvec) :
+                                  _NamingContext3D(holo.conventional, holo.principal, holo.secondary, holo.hexagonal, kvec)
+        gname, Ws, sectors, skipped = _pointgroup_sectors(k.littlegroup, lattice, ctx)
         for s in sectors
             exponent = Dict(Ws[s.elements[j]] => s.exponents[j] for j in eachindex(s.elements))
             characters = Dict{Int, ComplexF64}()
@@ -276,10 +275,21 @@ function _sectors(cs::ClusterSymmetries)
             allowed = sort(collect(keys(characters)))
             irrep = Irrep(k.label * "." * gname * "." * s.name, k.label, gname, s.name, s.parent, s.dimension,
                           k.momentum, allowed, [_clean(characters[p]) for p in allowed])
-            push!(result, (irrep, vanishes))
+            push!(result, (irrep, vanishes ? :vanishing : :ok))
+        end
+        for name in skipped
+            irrep = Irrep(k.label * "." * gname * "." * name, k.label, gname, name, name, 3, k.momentum, Int[], ComplexF64[])
+            push!(result, (irrep, :skipped))
         end
     end
     return sort(result; by=r -> (_kpoint_sortkey(r[1].kpoint), r[1].name))
+end
+
+_skipped_labels(sectors) = [irrep.label for (irrep, status) in sectors if status == :skipped]
+
+function _warn_skipped(skipped::Vector{String})
+    isempty(skipped) && return
+    @warn "Three-dimensional irreducible representations are skipped, since they cannot be written as one-dimensional characters. The sectors do not span the full Hilbert space. Skipped: " * join(skipped, ", ")
 end
 
 @doc raw"""
@@ -292,7 +302,9 @@ For a momentum ``\mathbf{k}`` with little co-group ``P_\mathbf{k}``, the sectors
 `"<momentum>.<P_k>.<irrep>"`, e.g. `"Gamma.C6v.A1"` or `"K.C3v.Ea"`. Two-dimensional irreps of
 ``P_\mathbf{k}`` are represented by two one-dimensional partners (`a`, `b`), see [`Irrep`](@ref).
 Irreps that vanish on the cluster, because they are not trivial on operations acting trivially
-on the sites (see [`trivial_operations`](@ref)), are left out.
+on the sites (see [`trivial_operations`](@ref)), are left out. Three-dimensional irreps (`T`
+irreps of the cubic point groups) cannot be written as one-dimensional characters; they are
+skipped with a warning.
 
 The character of an operation ``\mathcal{X} \mapsto W(\mathcal{X} - \mathbf{c}) + \mathbf{c} + \mathbf{t}``
 is ``\rho(W)\, e^{+i \mathbf{k} \cdot \mathbf{t}}``.
@@ -303,7 +315,11 @@ cs = symmetries(FiniteLattice(maple_leaf, [1 1; 1 -2], true))
 [irrep.label for irrep in irreps(cs)]   # "Gamma.C6.A", "Gamma.C6.B", "Gamma.C6.E1a", …, "K.C3.Eb"
 ```
 """
-irreps(cs::ClusterSymmetries) = [irrep for (irrep, vanishes) in _sectors(cs) if !vanishes]
+function irreps(cs::ClusterSymmetries)
+    sectors = _sectors(cs)
+    _warn_skipped(_skipped_labels(sectors))
+    return [irrep for (irrep, status) in sectors if status == :ok]
+end
 
 function Base.show(io::IO, cs::ClusterSymmetries)
     g = cs.spacegroup
