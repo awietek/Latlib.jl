@@ -17,13 +17,20 @@ exact diagonalization or other many-body codes such as
 
 - **Lattices in 2D and 3D**: define a `Lattice` from its Bravais vectors and
   atom positions, or use one of the predefined lattices (`square`,
-  `triangular`, `honeycomb`, `kagome`, `shastry_sutherland`, `hyperhoneycomb`).
+  `triangular`, `honeycomb`, `kagome`, `shastry_sutherland`,
+  `shastry_sutherland_non_symmorphic`, `lieb`, `trellis`,
+  `maple_leaf`, `hyperhoneycomb`, `simple_cubic`, `bcc`, `fcc`, `diamond`,
+  `pyrochlore`, `simple_hexagonal`, `hcp`).
 - **Finite clusters**: a `FiniteLattice` is a lattice cut by a boundary box
   given as integer combinations of the lattice vectors, with periodic or open
   boundaries in each direction.
 - **Periodic distances**: compute distances, distance matrices, and k-th
   nearest neighbors either in plain Euclidean space or modulo the periodic
   boundaries of a cluster.
+- **Symmetries**: determine the plane group or space group of a lattice and the
+  symmetry group of a periodic cluster, including site permutations, with
+  [spglib](https://spglib.readthedocs.io) (`spacegroup`). Symmorphic and
+  non-symmorphic groups are supported.
 - **Interactions**: build an `OpSum` of two-body operators from nearest
   neighbor rules (`neighbor_interaction`) or from explicit bonds between atoms
   in the unit cell (`lattice_interaction`), e.g. for Kitaev-type models.

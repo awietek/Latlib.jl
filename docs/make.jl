@@ -15,6 +15,7 @@ makedocs(
         "Finite lattices" => "finite_lattice.md",
         "Site ordering for MPS" => "mps_ordering.md",
         "Distances and neighbors" => "metric.md",
+        "Symmetries" => "symmetries.md",
         "Operators and interactions" => "opsum.md",
         "Reading and writing files" => "io.md",
         "Plotting" => "plots.md",

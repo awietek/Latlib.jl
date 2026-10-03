@@ -43,6 +43,18 @@ export FiniteLattice,
         atoms
 
 
+include("symmetry/spacegroup.jl")
+export SymmetryOperation,
+        SpaceGroup,
+        FiniteSpaceGroup,
+        spacegroup,
+        operations,
+        site_permutations,
+        issymmorphic,
+        pointgroup_operations,
+        cartesian_rotation
+
+
 include("metric.jl")
 export EuclideanMetric,
         PeriodicEuclideanMetric,
@@ -67,7 +79,18 @@ export square,
         honeycomb,
         kagome,
         shastry_sutherland,
-        hyperhoneycomb
+        shastry_sutherland_non_symmorphic,
+        lieb,
+        trellis,
+        maple_leaf,
+        hyperhoneycomb,
+        simple_cubic,
+        bcc,
+        fcc,
+        simple_hexagonal,
+        hcp,
+        diamond,
+        pyrochlore
 
 
 include("plots.jl")
