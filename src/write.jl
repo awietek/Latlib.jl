@@ -27,7 +27,11 @@ boundary (torus) vectors of the finite lattice. Coordinates are obtained from
 are listed as `[coupling, type, site1, site2]` for each operator in `opsum`.
 
 If `symmetries` is given, a `Symmetries` section with the site permutations of the
-symmetry operations of the cluster is appended, see [`toml_symmetries`](@ref).
+symmetry operations of the cluster is appended (see [`toml_symmetries`](@ref)). For symmorphic
+two-dimensional lattices, it is followed by the irreducible representations (see
+[`toml_irreps`](@ref) and [`irreps`](@ref)), unless `irreps=false`. Irreducible representations
+are not implemented for non-symmorphic space groups and three-dimensional lattices yet; in these
+cases only the symmetry operations are written and a warning is issued.
 
 # Arguments
 - `flattice::FiniteLattice`: FiniteLattice object containing the lattice;
@@ -37,20 +41,53 @@ symmetry operations of the cluster is appended, see [`toml_symmetries`](@ref).
 # Keyword arguments
 - `zero_based::Bool=false`: If true, site indices are 0-based instead of 1-based.
 - `return_string::Bool=false`: If true, the function returns the TOML string instead of writing to file and ignores `filename`.
-- `symmetries=nothing`: `true` to determine the symmetries of `flattice` with
-  [`spacegroup`](@ref), or a [`FiniteSpaceGroup`](@ref) of `flattice`. Only fully periodic
-  finite lattices are supported.
+- `symmetries=nothing`: `true` to determine the symmetries of `flattice` (fully periodic finite
+  lattices only), or the symmetries of `flattice` as a [`FiniteSpaceGroup`](@ref) (see
+  [`spacegroup`](@ref)) or a [`ClusterSymmetries`](@ref) (see [`symmetries`](@ref)).
+- `irreps::Bool=true`: whether to write the irreducible representations (if `symmetries` is given).
+- `origin=nothing`: symmetry center used for the irreducible representations, see
+  [`symmetries`](@ref). It has to be given if the lattice has several inequivalent points with
+  its full point-group symmetry, e.g. for the square lattice. Not needed for `irreps=false`.
+
+# Examples
+```julia
+fl = FiniteLattice(maple_leaf, [1 1; 1 -2], true)
+H = neighbor_interaction("SdotS", "J", fl)
+write_toml(fl, H, "maple_leaf.toml"; zero_based=true, symmetries=true)   # with irreps
+
+fl = FiniteLattice(square, [4 0; 0 4], true)
+H = neighbor_interaction("SdotS", "J", fl)
+write_toml(fl, H, "square.toml"; zero_based=true, symmetries=true, origin=LatticeVector(square, [0.0, 0.0]))
+write_toml(fl, H, "square.toml"; zero_based=true, symmetries=true, irreps=false)   # permutations only
+```
 """
-function write_toml(flattice::FiniteLattice, opsum::OpSum, filename::String; zero_based::Bool=false, return_string::Bool=false, symmetries=nothing)
-    # determine the symmetry group first, so that errors are raised before anything is written
+function write_toml(flattice::FiniteLattice, opsum::OpSum, filename::String; zero_based::Bool=false, return_string::Bool=false,
+                    symmetries=nothing, irreps::Bool=true, origin=nothing)
+    # determine the symmetries first, so that errors are raised before anything is written
     if symmetries === true
         symmetries = spacegroup(flattice)
-    elseif symmetries isa FiniteSpaceGroup
-        if atoms(symmetries.flattice) != atoms(flattice)
-            throw(ArgumentError("The `FiniteSpaceGroup` passed as `symmetries` belongs to a different finite lattice (sites differ)."))
+    elseif symmetries isa Union{FiniteSpaceGroup, ClusterSymmetries}
+        group = symmetries isa FiniteSpaceGroup ? symmetries : symmetries.spacegroup
+        if atoms(group.flattice) != atoms(flattice)
+            throw(ArgumentError("The symmetries passed as `symmetries` belong to a different finite lattice (sites differ)."))
+        end
+        if symmetries isa ClusterSymmetries && !isnothing(origin)
+            throw(ArgumentError("`origin` cannot be combined with a `ClusterSymmetries`, which already contains its symmetry center."))
         end
     elseif !(isnothing(symmetries) || symmetries === false)
-        throw(ArgumentError("`symmetries` must be `nothing`, `true`, `false` or a `FiniteSpaceGroup`."))
+        throw(ArgumentError("`symmetries` must be `nothing`, `true`, `false`, a `FiniteSpaceGroup` or a `ClusterSymmetries`."))
+    end
+
+    # irreducible representations: only for symmorphic two-dimensional lattices so far
+    if symmetries isa FiniteSpaceGroup && irreps
+        sg = symmetries.spacegroup
+        if !sg.symmorphic
+            @warn "Irreducible representations are not implemented for non-symmorphic space groups yet (the lattice has the group $(sg.symbol)). Only the symmetry operations are written."
+        elseif dim(flattice) != 2
+            @warn "Irreducible representations are not implemented for three-dimensional lattices yet. Only the symmetry operations are written."
+        else
+            symmetries = Latlib.symmetries(symmetries; origin=origin)
+        end
     end
 
     # write meta-data to TOML file
@@ -68,10 +105,17 @@ function write_toml(flattice::FiniteLattice, opsum::OpSum, filename::String; zer
     # get string for `Interactions` section of TOML file
     out_str = toml_interactions(opsum; zero_based=zero_based, out_str=out_str)
 
-    # get string for `Symmetries` section of TOML file
+    # get string for `Symmetries` section and the irreducible representations
     if symmetries isa FiniteSpaceGroup
         out_str *= "\n"
         out_str = toml_symmetries(symmetries; zero_based=zero_based, out_str=out_str)
+    elseif symmetries isa ClusterSymmetries
+        out_str *= "\n"
+        out_str = toml_symmetries(symmetries; zero_based=zero_based, out_str=out_str)
+        if irreps
+            out_str *= "\n"
+            out_str = toml_irreps(symmetries; zero_based=zero_based, out_str=out_str)
+        end
     end
 
     if return_string
@@ -184,13 +228,17 @@ end
 
 
 @doc raw"""
+    toml_symmetries(cs::ClusterSymmetries; zero_based::Bool=false, out_str::String="") -> String
     toml_symmetries(g::FiniteSpaceGroup; zero_based::Bool=false, out_str::String="") -> String
 
 Appends the `Symmetries` section to `out_str` and returns the result. Used by [`write_toml`](@ref).
 
 The section lists the site permutations of the symmetry operations of the finite lattice:
 the entry `[p_1, p_2, ...]` maps site `i` onto site `p_i`. Comments before the section state
-the symmetry group of the cluster and of the infinite lattice.
+the symmetry group of the cluster and of the infinite lattice. For a [`ClusterSymmetries`](@ref),
+they also state the symmetry center and list all momenta with their labels and little
+co-groups, marking the representatives of the stars with `*`; these are the momenta of the
+irreducible representations written by [`toml_irreps`](@ref).
 
 ```TOML
 Symmetries = [
@@ -219,10 +267,44 @@ function toml_symmetries(g::FiniteSpaceGroup; zero_based::Bool=false, out_str::S
     if length(trivial_operations(g)) > 1
         out_str *= toml_omitted_symmetries_placeholder(g)
     end
+    return _toml_permutations(g.permutations[distinct_operations(g)], offset, out_str)
+end
 
+function toml_symmetries(cs::ClusterSymmetries; zero_based::Bool=false, out_str::String="") :: String
+    zero_based || @warn "Symmetries are written with 1-based site indices, but codes like XDiag expect 0-based indices. Use `zero_based=true`."
+    offset = zero_based ? 1 : 0
+    g = cs.spacegroup
+    sg = g.spacegroup
+    lattice = g.flattice.lattice
+
+    out_str *= "# Symmetry center: " * _describe_point(lattice, cs.origin) * "\n"
+    out_str *= @sprintf "# Symmetry group of the cluster: %s (#%d), point group %s (%s), %d operations\n" g.symbol g.number g.pointgroup g.schoenflies length(g)
+    if length(cs.operations) < length(g)
+        out_str *= @sprintf "# Only the %d operations with translations by lattice vectors are used (the unit cell is not primitive).\n" length(cs.operations)
+    end
+    out_str *= @sprintf "# Symmetry group of the infinite lattice: %s (#%d), point group %s (%s)\n" sg.symbol sg.number sg.pointgroup sg.schoenflies
+
+    # all momenta, grouped by stars, representatives first
+    ks = momenta(cs)
+    reps = sort([k for k in ks if k.representative]; by=k -> _kpoint_sortkey(k.label))
+    out_str *= "# Momenta (Cartesian, first Brillouin zone; representatives of the stars marked with *):\n"
+    for r in reps, k in sort([k for k in ks if k.star == r.star]; by=k -> !k.representative)
+        coords = join([@sprintf("%.10f", x) for x in k.momentum], ", ")
+        out_str *= @sprintf "#   %-8s %-5s (%s)%s\n" k.label k.littlegroup_name coords (k.representative ? " *" : "")
+    end
+
+    if length(cs.trivial) > 1
+        ops = operations(g)
+        trivial = [ops[cs.operations[j]] for j in cs.trivial[2:end]]
+        out_str *= toml_omitted_symmetries_placeholder(trivial, length(cs.operations) - length(cs.permutations), length(cs.operations))
+    end
+    return _toml_permutations(cs.permutations, offset, out_str)
+end
+
+function _toml_permutations(permutations::Vector{Vector{Int}}, offset::Int, out_str::String) :: String
     out_str *= "Symmetries = [\n"
-    for k in distinct_operations(g)
-        out_str *= "  [" * join(g.permutations[k] .- offset, ", ") * "],\n"
+    for p in permutations
+        out_str *= "  [" * join(p .- offset, ", ") * "],\n"
     end
     out_str *= "]\n"
     return out_str
@@ -234,18 +316,82 @@ end
 # representations that are non-trivial on them vanish. How this should be stated in the
 # TOML file is to be decided (to be agreed upon with XDiag). Until then, a comment block
 # with the marker "PLACEHOLDER" reports the omission.
-function toml_omitted_symmetries_placeholder(g::FiniteSpaceGroup) :: String
-    trivial = trivial_operations(g)
-    nomitted = length(g) - length(distinct_operations(g))
+function toml_omitted_symmetries_placeholder(trivial::Vector{SymmetryOperation}, nomitted::Int, ntotal::Int) :: String
     s  = "# PLACEHOLDER (TOML format to be decided): omitted symmetry operations\n"
-    s *= @sprintf "# %d of the %d symmetry operations of this cluster are not listed in `Symmetries`, because\n" nomitted length(g)
+    s *= @sprintf "# %d of the %d symmetry operations of this cluster are not listed in `Symmetries`, because\n" nomitted ntotal
     s *= "# they permute the sites in the same way as another operation. The following operations\n"
     s *= "# act trivially on the sites (coordinates in the lattice basis):\n"
-    for k in trivial[2:end]
-        s *= "#   " * _xyz_string(g.operations[k]) * "\n"
+    for op in trivial
+        s *= "#   " * _xyz_string(op) * "\n"
     end
     s *= "# Irreducible representations that are not trivial on these operations vanish on this cluster.\n"
     return s
+end
+
+function toml_omitted_symmetries_placeholder(g::FiniteSpaceGroup) :: String
+    trivial = g.operations[trivial_operations(g)[2:end]]
+    return toml_omitted_symmetries_placeholder(trivial, length(g) - length(distinct_operations(g)), length(g))
+end
+
+# PLACEHOLDER for omitted irreducible representations (see above).
+function toml_omitted_irreps_placeholder(labels::Vector{String}) :: String
+    s  = "# PLACEHOLDER (TOML format to be decided): omitted irreducible representations\n"
+    s *= "# The following irreducible representations vanish on this cluster, because they are not\n"
+    s *= "# trivial on operations that act trivially on the sites:\n"
+    for label in labels
+        s *= "#   " * label * "\n"
+    end
+    return s
+end
+
+@doc raw"""
+    toml_irreps(cs::ClusterSymmetries; zero_based::Bool=false, out_str::String="") -> String
+
+Appends the irreducible representations of the symmetry group of a finite lattice (see
+[`irreps`](@ref)) to `out_str` and returns the result. Used by [`write_toml`](@ref).
+
+Every irreducible representation is written as a table named after its label, containing the
+characters (as `[real, imag]` pairs) of the allowed symmetries, the indices of the allowed
+symmetries in the `Symmetries` section, and the Cartesian momentum:
+
+```TOML
+[K.C3.Ea]
+characters = [
+  [1.0000000000000000, 0.0000000000000000],
+  [-0.4999999999999998, -0.8660254037844388],
+  ...
+]
+allowed_symmetries = [0, 1, 2, 3, 4, 5, 6, 7, 8]
+momentum = [1.5832138822983011, 0.0000000000000000]
+```
+
+The indices of the allowed symmetries follow `zero_based`. Irreducible representations that
+vanish on the cluster are left out and listed in a comment block; its format is a
+placeholder and may change.
+"""
+function toml_irreps(cs::ClusterSymmetries; zero_based::Bool=false, out_str::String="") :: String
+    offset = zero_based ? 1 : 0
+    sectors = _sectors(cs)
+    out_str *= "# Irreducible representations\n"
+    vanishing = [irrep.label for (irrep, vanishes) in sectors if vanishes]
+    isempty(vanishing) || (out_str *= toml_omitted_irreps_placeholder(vanishing))
+    for (irrep, vanishes) in sectors
+        vanishes && continue
+        if irrep.dimension == 2 && endswith(irrep.name, "a")
+            out_str *= "# $(irrep.kpoint).$(irrep.littlegroup).$(irrep.parent) is two-dimensional: its partners $(irrep.parent)a and $(irrep.parent)b\n"
+            out_str *= "# are sectors of a subgroup of the little group and are exactly degenerate.\n"
+        end
+        out_str *= "[" * irrep.label * "]\n"
+        out_str *= "characters = [\n"
+        for χ in irrep.characters
+            out_str *= @sprintf "  [%.16f, %.16f],\n" real(χ) imag(χ)
+        end
+        out_str *= "]\n"
+        out_str *= "allowed_symmetries = [" * join(irrep.allowed_symmetries .- offset, ", ") * "]\n"
+        out_str *= "momentum = [" * join([@sprintf("%.16f", x) for x in irrep.momentum], ", ") * "]\n"
+        out_str *= "\n"
+    end
+    return out_str
 end
 
 """

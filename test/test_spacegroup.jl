@@ -354,7 +354,12 @@ const NONSYMMORPHIC_SYMBOLS = Set(["p4gm", "p2gg", "P6_3/mmc", "Cmcm", "Fd-3m", 
         @test TOML.parse(s)["Symmetries"] == [p .- 1 for p in site_permutations(g)]
         @test occursin("# Symmetry group of the cluster: p6 (#16)", s)
         @test !occursin("PLACEHOLDER", s)
+        # passing the FiniteSpaceGroup gives the same output; irreps=false writes only the permutations
         @test write_toml(fl, H, ""; zero_based=true, return_string=true, symmetries=g) == s
+        s_perms = write_toml(fl, H, ""; zero_based=true, return_string=true, symmetries=g, irreps=false)
+        @test TOML.parse(s_perms)["Symmetries"] == TOML.parse(s)["Symmetries"]
+        @test occursin("# Irreducible representations\n", s)
+        @test !occursin("# Irreducible representations\n", s_perms)
         @test !occursin("Symmetries", write_toml(fl, H, ""; zero_based=true, return_string=true))
 
         # thin cluster: one permutation per distinct action, omitted operations reported

@@ -82,14 +82,77 @@ Irreducible representations that are not trivial on these operations vanish on s
 cluster. [`distinct_operations`](@ref) selects one operation per distinct site permutation;
 only these are written to TOML files by [`toml_symmetries`](@ref).
 
+## Irreducible representations
+
+For exact diagonalization, the Hilbert space of a cluster is split into sectors labelled by
+the irreducible representations (irreps) of its space group. [`symmetries`](@ref) prepares the
+symmetry operations of a periodic finite lattice, [`momenta`](@ref) lists the momenta it
+resolves, and [`irreps`](@ref) returns the sectors with their characters. This is implemented
+for two-dimensional lattices with a symmorphic plane group.
+
+```@example symmetries
+cs = symmetries(FiniteLattice(maple_leaf, [1 1; 1 -2], true))
+[irrep.label for irrep in irreps(cs)]
+```
+
+The irreps are constructed for one representative momentum of each star, i.e. of each orbit of
+momenta under the point group of the cluster. Two momenta that are related by a symmetry of
+the infinite lattice but not of the cluster belong to different stars. A sector is labelled
+`"<momentum>.<little co-group>.<irrep>"`:
+
+- **Momenta** are labelled following the Bilbao Crystallographic Server for the Bravais lattice
+  (e.g. `Gamma`, `K`, `M` for the hexagonal lattice and `Sigma`, `Lambda`, `T` on the lines
+  between them). Generic momenta are labelled `GP0`, `GP1`, …; other labels are numbered only
+  if they occur more than once.
+- **Little co-groups** are named by their Schoenflies symbol: `C1`, `C2`, `C3`, `C4`, `C6`,
+  `Cs`, `C2v`, `C3v`, `C4v`, `C6v`.
+- **Irreps** carry their Mulliken symbol, with the orientation conventions of the Bilbao
+  Crystallographic Server and `p`/`pp` for primes (`Ap`, `App`). The complex conjugate pairs of
+  the rotation groups are labelled `a`/`b` (e.g. `E1a`, `E1b`), where `a` belongs to
+  ``\exp(+2\pi i m/n)`` on the counter-clockwise rotation by ``2\pi/n``.
+- **Two-dimensional irreps** (`E`, `E1`, `E2` of `C3v`, `C4v`, `C6v`) are represented by two
+  exactly degenerate partners `a`/`b`, one-dimensional representations of the rotation subgroup.
+
+The character of an operation ``\mathcal{X} \mapsto W(\mathcal{X} - \mathbf{c}) + \mathbf{c} + \mathbf{t}``,
+written relative to the symmetry center ``\mathbf{c}``, is ``\rho(W)\, e^{+i\mathbf{k}\cdot\mathbf{t}}``.
+
+The symmetry center is a point with the full point-group symmetry of the lattice. If it is
+unique, it is chosen automatically, like the center of a hexagon of the maple-leaf lattice
+above. Otherwise it has to be given, e.g. for the square lattice (site or plaquette center):
+
+```@example symmetries
+cs = symmetries(FiniteLattice(square, [4 0; 0 4], true); origin=LatticeVector(square, [0.0, 0.0]))
+[(k.label, k.littlegroup_name) for k in momenta(cs) if k.representative]
+```
+
+On small or thin clusters, irreps that are not trivial on operations acting trivially on the
+sites vanish; they are left out.
+
 ## Writing symmetries to TOML files
 
-Pass `symmetries=true` to [`write_toml`](@ref) to append the site permutations of the
-cluster's symmetry operations as a `Symmetries` section, see [`toml_symmetries`](@ref).
+Pass `symmetries=true` to [`write_toml`](@ref) to append the site permutations of the cluster's
+symmetry operations as a `Symmetries` section (see [`toml_symmetries`](@ref)). This works for
+every lattice:
+
+- **Symmorphic two-dimensional lattices**: the irreducible representations are written as well
+  (see [`toml_irreps`](@ref)), unless `irreps=false`. If the symmetry center is ambiguous, it is
+  passed with the keyword `origin`.
+- **Non-symmorphic space groups and three-dimensional lattices**: only the symmetry operations
+  are written, and a warning states that irreducible representations are not implemented for
+  them yet.
+
+Instead of `true`, a precomputed [`FiniteSpaceGroup`](@ref) or [`ClusterSymmetries`](@ref) can be
+passed.
 
 ## API
 
 ```@docs
+symmetries
+ClusterSymmetries
+momenta
+ClusterMomentum
+irreps
+Irrep
 spacegroup
 SpaceGroup
 FiniteSpaceGroup

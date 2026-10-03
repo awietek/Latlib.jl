@@ -1,0 +1,242 @@
+using LinearAlgebra
+
+# ----------------------------------------------------------------------
+#      Holohedry (point group of the Bravais lattice) and labels of
+#      momenta in two dimensions (Bilbao / CDML conventions)
+# ----------------------------------------------------------------------
+
+# Labels of momenta, in coordinates of the conventional reciprocal basis:
+#  points: (label, k)
+#  lines:  (label, k0, direction d, αmax) for k = k0 + α d with 0 < α < αmax
+# For the centered rectangular lattice, lines are identified from the first-Brillouin-zone
+# image instead (Σ: y = 0, Δ: x = 0, C: |y| = 1, F: |x| = 1), since their extent depends on
+# the lattice parameters.
+const _KPOINT_LABELS_2D = Dict(
+    :hexagonal => (
+        points = [("K", [1/3, 1/3]), ("M", [1/2, 0.0])],
+        lines  = [("Sigma", [0.0, 0.0], [1.0, 0.0], 1/2), ("Lambda", [0.0, 0.0], [1.0, 1.0], 1/3),
+                  ("T", [1/2, 0.0], [-1.0, 2.0], 1/6)]),
+    :square => (
+        points = [("M", [1/2, 1/2]), ("X", [0.0, 1/2])],
+        lines  = [("Delta", [0.0, 0.0], [0.0, 1.0], 1/2), ("Sigma", [0.0, 0.0], [1.0, 1.0], 1/2),
+                  ("Y", [0.0, 1/2], [1.0, 0.0], 1/2)]),
+    :rectangular => (
+        points = [("S", [1/2, 1/2]), ("X", [1/2, 0.0]), ("Y", [0.0, 1/2])],
+        lines  = [("Sigma", [0.0, 0.0], [1.0, 0.0], 1/2), ("Delta", [0.0, 0.0], [0.0, 1.0], 1/2),
+                  ("C", [0.0, 1/2], [1.0, 0.0], 1/2), ("D", [1/2, 0.0], [0.0, 1.0], 1/2)]),
+    :centered_rectangular => (
+        points = [("Y", [1.0, 0.0]), ("S", [1/2, 1/2])],
+        lines  = Tuple{String, Vector{Float64}, Vector{Float64}, Float64}[]),
+    :oblique => (
+        points = [("Y", [0.0, 1/2]), ("B", [1/2, 0.0]), ("A", [1/2, -1/2])],
+        lines  = Tuple{String, Vector{Float64}, Vector{Float64}, Float64}[]),
+)
+
+struct _Holohedry
+    type::Symbol                          # :oblique, :rectangular, :centered_rectangular, :square, :hexagonal
+    rotations::Vector{Matrix{Float64}}    # Cartesian point group of the Bravais lattice
+    conventional::Matrix{Float64}         # columns: conventional lattice vectors (Cartesian)
+    shortest::Vector{Vector{Float64}}     # shortest lattice vectors (Cartesian)
+end
+
+_rotate2d(v::AbstractVector, θ::Real) = [cos(θ) -sin(θ); sin(θ) cos(θ)] * v
+
+# lattice vectors (Cartesian) with coordinates in -n:n, sorted by length and angle
+function _lattice_vectors_2d(lattice::Lattice, n::Int)
+    vs = [lattice.A' * [i, j] for i in -n:n for j in -n:n if (i, j) != (0, 0)]
+    return sort(vs; by=v -> (round(norm(v); digits=8), mod(atan(v[2], v[1]), 2π)))
+end
+
+function _holohedry(lattice::Lattice) :: _Holohedry
+    bravais = Lattice(lattice.A)
+    Rs = [cartesian_rotation(op, bravais) for op in operations(spacegroup(bravais))]
+    vs = _lattice_vectors_2d(lattice, 6)
+    shortest = [v for v in vs if norm(v) < norm(vs[1]) + 1e-8]
+    a = shortest[1]
+    n = length(Rs)
+    if n == 12
+        return _Holohedry(:hexagonal, Rs, hcat(a, _rotate2d(a, 2π / 3)), shortest)
+    elseif n == 8
+        return _Holohedry(:square, Rs, hcat(a, _rotate2d(a, π / 2)), shortest)
+    elseif n == 4
+        # shortest lattice vectors along the two mirror lines span the conventional cell
+        lines = [_mirror_line(R) for R in Rs if det(R) < 0]
+        va, vb = [first(v for v in vs if _parallel(v, u)) for u in lines]
+        va, vb = norm(va) <= norm(vb) ? (va, vb) : (vb, va)
+        vb = va[1] * vb[2] - va[2] * vb[1] > 0 ? vb : -vb
+        index = abs(det(hcat(lattice.A' \ va, lattice.A' \ vb)))
+        type = isapprox(index, 1; atol=1e-6) ? :rectangular : :centered_rectangular
+        return _Holohedry(type, Rs, hcat(va, vb), shortest)
+    elseif n == 2
+        # reduced basis: shortest vector a, shortest non-parallel vector b with a·b <= 0
+        b = first(v for v in vs if !_parallel(v, a) && dot(a, v) <= 1e-8)
+        b = a[1] * b[2] - a[2] * b[1] > 0 ? b : -b
+        return _Holohedry(:oblique, Rs, hcat(a, b), shortest)
+    else
+        error("Unexpected point group of order $n of a two-dimensional Bravais lattice. This is a bug, please report!")
+    end
+end
+
+# whether a Cartesian vector q is a reciprocal lattice vector
+_isreciprocal(lattice::Lattice, q::AbstractVector; atol=1e-8) = all(is_whole.(lattice.A * q / (2π); atol=atol))
+
+# image of a Cartesian momentum k in the first Brillouin zone; on the zone boundary, the
+# image with the largest (kx, ky) is chosen
+function _first_bz(lattice::Lattice, k::AbstractVector) :: Vector{Float64}
+    Bstar = 2π * inv(lattice.A)    # columns: reciprocal lattice vectors
+    D = length(k)
+    candidates = [k + Bstar * collect(n) for n in Iterators.product(ntuple(_ -> -3:3, D)...)]
+    dmin = minimum(norm, candidates)
+    closest = [q for q in candidates if norm(q) < dmin + 1e-9]
+    best = sort(closest; by=q -> Tuple(round.(q; digits=9)), rev=true)[1]
+    return [abs(x) < 1e-12 ? 0.0 : x for x in best]
+end
+
+# Bilbao label (without numbering) of a Cartesian momentum k
+function _kpoint_label_2d(lattice::Lattice, holo::_Holohedry, k::AbstractVector) :: String
+    _isreciprocal(lattice, k) && return "Gamma"
+    table = _KPOINT_LABELS_2D[holo.type]
+    Cstar = 2π * inv(holo.conventional)'   # columns: conventional reciprocal basis vectors
+    for (label, kc) in table.points
+        kp = Cstar * kc
+        any(R -> _isreciprocal(lattice, R * k - kp), holo.rotations) && return label
+    end
+    if holo.type == :centered_rectangular
+        x, y = holo.conventional' * _first_bz(lattice, k) / (2π)
+        abs(y) < 1e-8 && return "Sigma"
+        abs(x) < 1e-8 && return "Delta"
+        abs(abs(y) - 1) < 1e-8 && return "C"
+        abs(abs(x) - 1) < 1e-8 && return "F"
+        return "GP"
+    end
+    Bstar = 2π * inv(lattice.A)
+    shifts = [Bstar * collect(n) for n in Iterators.product(-2:2, -2:2)]
+    for (label, k0, d, αmax) in table.lines
+        k0c, dc = Cstar * k0, Cstar * d
+        for R in holo.rotations, G in shifts
+            q = R * k - k0c - G
+            α = dot(q, dc) / dot(dc, dc)
+            if norm(q - α * dc) < 1e-8 && 1e-8 < α < αmax - 1e-8
+                return label
+            end
+        end
+    end
+    return "GP"
+end
+
+
+# ----------------------------------------------------------------------
+#                       Momenta of a finite lattice
+# ----------------------------------------------------------------------
+
+@doc raw"""
+    ClusterMomentum
+
+A momentum resolved by a periodic finite lattice, see [`momenta`](@ref).
+
+# Fields
+- `coords::Vector{Rational{Int}}`: coordinates ``\kappa`` in the basis of reciprocal lattice
+  vectors, ``\mathbf{k} = \sum_j \kappa_j \mathbf{b}_j`` with ``\mathbf{a}_i \cdot \mathbf{b}_j = 2\pi\delta_{ij}``,
+  reduced to ``[0, 1)``.
+- `momentum::Vector{Float64}`: Cartesian coordinates of the image in the first Brillouin zone.
+- `label::String`: label of the momentum following the conventions of the Bilbao
+  Crystallographic Server for the Bravais lattice, e.g. `"Gamma"`, `"K"`, `"M"`, `"Sigma"`.
+  Generic momenta are labelled `"GP0"`, `"GP1"`, …; other labels are numbered (`"Sigma0"`,
+  `"Sigma1"`, …) only if they occur more than once among the representatives of the stars.
+- `star::Int`: index of the star (orbit under the point group of the cluster) of the momentum.
+- `representative::Bool`: whether the momentum represents its star.
+- `littlegroup::Vector{Matrix{Int}}`: little co-group, i.e. the rotations (lattice basis) of the
+  cluster that leave the momentum invariant up to a reciprocal lattice vector.
+- `littlegroup_name::String`: Schoenflies symbol of the little co-group.
+"""
+struct ClusterMomentum
+    coords::Vector{Rational{Int}}
+    momentum::Vector{Float64}
+    label::String
+    star::Int
+    representative::Bool
+    littlegroup::Vector{Matrix{Int}}
+    littlegroup_name::String
+end
+
+# all momenta κ with B κ ∈ Z^D, modulo reciprocal lattice vectors
+function _cluster_coords(boundary::Matrix{Int}) :: Vector{Vector{Rational{Int}}}
+    Binv = inv(Rational{Int}.(boundary))
+    gens = [mod.(Binv[:, j], 1) for j in 1:size(Binv, 2)]
+    coords = [zeros(Rational{Int}, size(Binv, 1))]
+    seen = Set(coords)
+    frontier = copy(coords)
+    while !isempty(frontier)
+        new = Vector{Rational{Int}}[]
+        for κ in frontier, g in gens
+            p = mod.(κ + g, 1)
+            if !(p in seen)
+                push!(seen, p)
+                push!(new, p)
+                push!(coords, p)
+            end
+        end
+        frontier = new
+    end
+    length(coords) == abs(round(Int, det(boundary))) || error("Wrong number of momenta. This is a bug, please report!")
+    return coords
+end
+
+# Momenta of a finite lattice with point group `pointgroup` (lattice basis)
+function _momenta(flattice::FiniteLattice, pointgroup::Vector{Matrix{Int}}) :: Vector{ClusterMomentum}
+    lattice = flattice.lattice
+    holo = _holohedry(lattice)
+    coords = _cluster_coords(flattice.boundary)
+    cartesian(κ) = 2π * (lattice.A \ Float64.(κ))
+    images = [_first_bz(lattice, cartesian(κ)) for κ in coords]
+
+    # stars: orbits under κ -> W^{-T} κ
+    index = Dict(κ => i for (i, κ) in enumerate(coords))
+    Winvt = [Matrix{Int}(round.(Int, inv(W))') for W in pointgroup]
+    star = zeros(Int, length(coords))
+    nstars = 0
+    for i in eachindex(coords)
+        star[i] == 0 || continue
+        nstars += 1
+        for M in Winvt
+            star[index[mod.(M * coords[i], 1)]] = nstars
+        end
+    end
+
+    # representative of each star: first one when sorted by (kx, ky) of the first-BZ image, descending
+    order = sortperm([Tuple(round.(q; digits=9)) for q in images]; rev=true)
+    representative = falses(length(coords))
+    seen = Set{Int}()
+    for i in order
+        if !(star[i] in seen)
+            push!(seen, star[i])
+            representative[i] = true
+        end
+    end
+
+    # labels; numbered among representatives if repeated, generic momenta always numbered
+    base = [_kpoint_label_2d(lattice, holo, cartesian(κ)) for κ in coords]
+    counts = Dict{String, Int}()
+    for i in order
+        representative[i] && (counts[base[i]] = get(counts, base[i], 0) + 1)
+    end
+    number = Dict{Int, Int}()   # star -> number
+    used = Dict{String, Int}()
+    for i in order
+        representative[i] || continue
+        if base[i] == "GP" || counts[base[i]] > 1
+            number[star[i]] = get(used, base[i], 0)
+            used[base[i]] = number[star[i]] + 1
+        end
+    end
+    labels = [haskey(number, star[i]) ? base[i] * string(number[star[i]]) : base[i] for i in eachindex(coords)]
+
+    # little co-groups
+    result = ClusterMomentum[]
+    for (i, κ) in enumerate(coords)
+        little = [W for W in pointgroup if all(iszero, mod.(W' * κ - κ, 1))]
+        Rs = [lattice.A' * W / lattice.A' for W in little]
+        push!(result, ClusterMomentum(κ, images[i], labels[i], star[i], representative[i], little, _pointgroup_name_2d(Rs)))
+    end
+    return result
+end

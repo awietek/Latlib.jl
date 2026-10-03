@@ -56,6 +56,16 @@ export SymmetryOperation,
         pointgroup_operations,
         cartesian_rotation
 
+include("symmetry/pointgroups.jl")
+include("symmetry/kpoints.jl")
+include("symmetry/irreps.jl")
+export ClusterSymmetries,
+        symmetries,
+        ClusterMomentum,
+        momenta,
+        Irrep,
+        irreps
+
 
 include("metric.jl")
 export EuclideanMetric,
@@ -106,6 +116,7 @@ export write_toml,
         toml_coordinates,
         toml_interactions,
         toml_symmetries,
+        toml_irreps,
         toml_lattice,
         toml_metadata
 
