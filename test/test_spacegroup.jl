@@ -306,12 +306,75 @@ const NONSYMMORPHIC_SYMBOLS = Set(["p4gm", "p2gg", "P6_3/mmc", "Cmcm", "Fd-3m", 
                     @test all(p -> length(p) == length(atoms(fl)), site_permutations(g))
                     @test permutations_are_correct(g)
                     @test permutations_form_group(g)
+                    @test length(trivial_operations(g)) * length(distinct_operations(g)) == length(g)
                 end
             end
         end
 
         # only fully periodic clusters are supported
         @test_throws ArgumentError spacegroup(FiniteLattice(square, [4 0; 0 4], [true, false]))
+    end
+
+    @testset "trivially acting operations" begin
+        # faithful action: only the identity acts trivially
+        g = spacegroup(FiniteLattice(honeycomb, [3 0; 0 3], true))
+        @test trivial_operations(g) == [1]
+        @test distinct_operations(g) == collect(1:length(g))
+
+        # small or thin clusters: (lattice, boundary, |K|, number of distinct permutations)
+        cases = [
+            (square,           [4 0; 0 2],             2,  16),   # mirror y -> -y on a torus of length 2 along y
+            (triangular,       [2 0; 0 1],             4,  2),    # two sites
+            (simple_cubic,     [2 0 0; 0 2 0; 0 0 2],  8,  48),   # inversion, axial mirrors and twofold axes
+            (simple_hexagonal, [3 0 0; 0 3 0; 0 0 2],  2,  216),  # σ_h on a torus of two layers
+            (bcc,              [0 1 1; 1 0 1; 1 1 0],  48, 2),    # conventional cell: the whole point group
+        ]
+        for (lattice, boundary, nK, ndistinct) in cases
+            fl = FiniteLattice(lattice, boundary, true)
+            g = spacegroup(fl)
+            K = trivial_operations(g)
+            R = distinct_operations(g)
+            perms = site_permutations(g)
+            @test length(K) == nK
+            @test length(R) == ndistinct
+            @test length(K) * length(R) == length(g)
+            @test K[1] == 1 && R[1] == 1
+            @test all(k -> perms[k] == collect(1:length(atoms(fl))), K)
+            @test allunique(perms[R])
+            @test Set(perms[R]) == Set(perms)
+        end
+    end
+
+    @testset "TOML output" begin
+        # faithful cluster: all permutations, no placeholder
+        fl = FiniteLattice(maple_leaf, [1 1; 1 -2], true)
+        H = neighbor_interaction("SdotS", "J", fl)
+        g = spacegroup(fl)
+        s = write_toml(fl, H, ""; zero_based=true, return_string=true, symmetries=true)
+        @test TOML.parse(s)["Symmetries"] == [p .- 1 for p in site_permutations(g)]
+        @test occursin("# Symmetry group of the cluster: p6 (#16)", s)
+        @test !occursin("PLACEHOLDER", s)
+        @test write_toml(fl, H, ""; zero_based=true, return_string=true, symmetries=g) == s
+        @test !occursin("Symmetries", write_toml(fl, H, ""; zero_based=true, return_string=true))
+
+        # thin cluster: one permutation per distinct action, omitted operations reported
+        fl2 = FiniteLattice(square, [4 0; 0 2], true)
+        H2 = neighbor_interaction("SdotS", "J", fl2)
+        g2 = spacegroup(fl2)
+        s2 = toml_symmetries(g2; zero_based=true)
+        @test TOML.parse(s2)["Symmetries"] == [p .- 1 for p in site_permutations(g2)[distinct_operations(g2)]]
+        @test length(TOML.parse(s2)["Symmetries"]) == 16
+        @test occursin("PLACEHOLDER", s2)
+        @test occursin("#   x,-y\n", s2)   # the trivially acting mirror
+
+        # 1-based site indices are written, with a warning
+        s1 = @test_logs (:warn, r"0-based") toml_symmetries(g2; zero_based=false)
+        @test TOML.parse(s1)["Symmetries"][1] == collect(1:8)
+
+        # errors: group of a different lattice, open boundaries
+        @test_throws ArgumentError write_toml(fl2, H2, ""; zero_based=true, return_string=true, symmetries=g)
+        fl_open = FiniteLattice(square, [4 0; 0 4], [true, false])
+        @test_throws ArgumentError write_toml(fl_open, neighbor_interaction("SdotS", "J", fl_open), ""; zero_based=true, return_string=true, symmetries=true)
     end
 
     @testset "legacy maple-leaf clusters" begin

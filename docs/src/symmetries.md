@@ -65,9 +65,27 @@ site_permutations(g)[2]
 
 Only fully periodic finite lattices are supported.
 
-!!! note
-    On very small clusters several operations can act identically on the sites, for
-    example a two-site cluster has many more operations than distinct site permutations.
+## Operations acting trivially on the sites
+
+On small or thin clusters, operations other than the identity can fix every site. For
+example, on a torus that is only two unit cells long along ``y``, the mirror
+``y \mapsto -y`` maps every site onto itself. [`trivial_operations`](@ref) returns these
+operations; they form a normal subgroup, and each site permutation is then realized by
+several operations:
+
+```@example symmetries
+g = spacegroup(FiniteLattice(square, [4 0; 0 2], true))
+operations(g)[trivial_operations(g)]
+```
+
+Irreducible representations that are not trivial on these operations vanish on such a
+cluster. [`distinct_operations`](@ref) selects one operation per distinct site permutation;
+only these are written to TOML files by [`toml_symmetries`](@ref).
+
+## Writing symmetries to TOML files
+
+Pass `symmetries=true` to [`write_toml`](@ref) to append the site permutations of the
+cluster's symmetry operations as a `Symmetries` section, see [`toml_symmetries`](@ref).
 
 ## API
 
@@ -78,6 +96,8 @@ FiniteSpaceGroup
 SymmetryOperation
 operations
 site_permutations
+trivial_operations
+distinct_operations
 issymmorphic
 pointgroup_operations
 cartesian_rotation

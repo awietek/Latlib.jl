@@ -50,6 +50,8 @@ export SymmetryOperation,
         spacegroup,
         operations,
         site_permutations,
+        trivial_operations,
+        distinct_operations,
         issymmorphic,
         pointgroup_operations,
         cartesian_rotation
@@ -103,6 +105,7 @@ include("write.jl")
 export write_toml,
         toml_coordinates,
         toml_interactions,
+        toml_symmetries,
         toml_lattice,
         toml_metadata
 

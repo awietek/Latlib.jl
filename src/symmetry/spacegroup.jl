@@ -429,6 +429,77 @@ is the index (in [`atoms`](@ref)) of the image of site `i` under the `k`-th oper
 """
 site_permutations(g::FiniteSpaceGroup) = g.permutations
 
+@doc raw"""
+    trivial_operations(g::FiniteSpaceGroup) -> Vector{Int}
+
+Indices (into [`operations`](@ref)`(g)`) of the operations that act trivially on the sites,
+i.e. whose site permutation is the identity. The identity (index 1) is always included.
+
+On small or thin clusters, operations other than the identity can act trivially. For
+example, the mirror ``y \mapsto -y`` fixes every site of a torus that is two unit cells
+long along ``y``. These operations form a normal subgroup ``K``, and every site permutation
+is realized by exactly ``|K|`` operations. Irreducible representations that are not trivial
+on ``K`` vanish identically on such a cluster.
+
+See also [`distinct_operations`](@ref).
+"""
+function trivial_operations(g::FiniteSpaceGroup) :: Vector{Int}
+    identity = collect(1:length(first(g.permutations)))
+    return [k for (k, p) in enumerate(g.permutations) if p == identity]
+end
+
+"""
+    distinct_operations(g::FiniteSpaceGroup) -> Vector{Int}
+
+Indices (into [`operations`](@ref)`(g)`) of one operation per distinct site permutation,
+namely the first one in the order of `operations(g)`, so the identity comes first. If all
+operations act differently on the sites, these are all indices.
+
+See also [`trivial_operations`](@ref).
+"""
+function distinct_operations(g::FiniteSpaceGroup) :: Vector{Int}
+    seen = Set{Vector{Int}}()
+    indices = Int[]
+    for (k, p) in enumerate(g.permutations)
+        if !(p in seen)
+            push!(seen, p)
+            push!(indices, k)
+        end
+    end
+    return indices
+end
+
+# a real number as a short fraction ("1/2") if possible, otherwise as a decimal
+function _fraction_string(x::Real) :: String
+    for q in 1:12
+        p = round(Int, x * q)
+        if abs(x * q - p) < 1e-8
+            return q == 1 ? string(p) : string(p, "/", q)
+        end
+    end
+    return @sprintf "%.6f" x
+end
+
+# coordinate-triplet notation of an operation in the lattice basis, e.g. "-y,x-y,z+1/2"
+function _xyz_string(op::SymmetryOperation) :: String
+    names = ["x", "y", "z"]
+    rows = String[]
+    for i in 1:size(op.W, 1)
+        s = ""
+        for j in 1:size(op.W, 2)
+            c = op.W[i, j]
+            c == 0 && continue
+            s *= (c < 0 ? "-" : (isempty(s) ? "" : "+")) * (abs(c) == 1 ? "" : string(abs(c))) * names[j]
+        end
+        t = op.w[i]
+        if abs(t) > 1e-10
+            s *= (t < 0 ? "-" : (isempty(s) ? "" : "+")) * _fraction_string(abs(t))
+        end
+        push!(rows, isempty(s) ? "0" : s)
+    end
+    return join(rows, ",")
+end
+
 """
     issymmorphic(g::SpaceGroup) -> Bool
     issymmorphic(g::FiniteSpaceGroup) -> Bool
@@ -462,5 +533,9 @@ function Base.show(io::IO, g::FiniteSpaceGroup)
     println(io, @sprintf "group       = %s (#%d)%s" g.symbol g.number (g.symmorphic ? ", symmorphic" : ", non-symmorphic"))
     println(io, @sprintf "point group = %s (%s), %d operations" g.pointgroup g.schoenflies length(pointgroup_operations(g)))
     println(io, @sprintf "operations  = %d on %d sites" length(g) length(first(g.permutations)))
+    ntrivial = length(trivial_operations(g))
+    if ntrivial > 1
+        println(io, @sprintf "trivial     = %d operations act trivially on the sites (%d distinct permutations)" ntrivial length(distinct_operations(g)))
+    end
     println(io, @sprintf "lattice     = %s" g.spacegroup.symbol)
 end

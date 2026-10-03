@@ -26,6 +26,9 @@ boundary (torus) vectors of the finite lattice. Coordinates are obtained from
 [`atoms`](@ref)`(flattice)` and rounded according to `flattice.tol`. Interactions
 are listed as `[coupling, type, site1, site2]` for each operator in `opsum`.
 
+If `symmetries` is given, a `Symmetries` section with the site permutations of the
+symmetry operations of the cluster is appended, see [`toml_symmetries`](@ref).
+
 # Arguments
 - `flattice::FiniteLattice`: FiniteLattice object containing the lattice;
 - `opsum::OpSum`: OpSum object containing the operators;
@@ -34,8 +37,22 @@ are listed as `[coupling, type, site1, site2]` for each operator in `opsum`.
 # Keyword arguments
 - `zero_based::Bool=false`: If true, site indices are 0-based instead of 1-based.
 - `return_string::Bool=false`: If true, the function returns the TOML string instead of writing to file and ignores `filename`.
+- `symmetries=nothing`: `true` to determine the symmetries of `flattice` with
+  [`spacegroup`](@ref), or a [`FiniteSpaceGroup`](@ref) of `flattice`. Only fully periodic
+  finite lattices are supported.
 """
-function write_toml(flattice::FiniteLattice, opsum::OpSum, filename::String; zero_based::Bool=false, return_string::Bool=false)
+function write_toml(flattice::FiniteLattice, opsum::OpSum, filename::String; zero_based::Bool=false, return_string::Bool=false, symmetries=nothing)
+    # determine the symmetry group first, so that errors are raised before anything is written
+    if symmetries === true
+        symmetries = spacegroup(flattice)
+    elseif symmetries isa FiniteSpaceGroup
+        if atoms(symmetries.flattice) != atoms(flattice)
+            throw(ArgumentError("The `FiniteSpaceGroup` passed as `symmetries` belongs to a different finite lattice (sites differ)."))
+        end
+    elseif !(isnothing(symmetries) || symmetries === false)
+        throw(ArgumentError("`symmetries` must be `nothing`, `true`, `false` or a `FiniteSpaceGroup`."))
+    end
+
     # write meta-data to TOML file
     out_str = toml_metadata()
     out_str *= "\n"
@@ -50,6 +67,12 @@ function write_toml(flattice::FiniteLattice, opsum::OpSum, filename::String; zer
 
     # get string for `Interactions` section of TOML file
     out_str = toml_interactions(opsum; zero_based=zero_based, out_str=out_str)
+
+    # get string for `Symmetries` section of TOML file
+    if symmetries isa FiniteSpaceGroup
+        out_str *= "\n"
+        out_str = toml_symmetries(symmetries; zero_based=zero_based, out_str=out_str)
+    end
 
     if return_string
         return out_str
@@ -159,6 +182,71 @@ function toml_coordinates(flattice::FiniteLattice; out_str::String="") :: String
     return out_str
 end
 
+
+@doc raw"""
+    toml_symmetries(g::FiniteSpaceGroup; zero_based::Bool=false, out_str::String="") -> String
+
+Appends the `Symmetries` section to `out_str` and returns the result. Used by [`write_toml`](@ref).
+
+The section lists the site permutations of the symmetry operations of the finite lattice:
+the entry `[p_1, p_2, ...]` maps site `i` onto site `p_i`. Comments before the section state
+the symmetry group of the cluster and of the infinite lattice.
+
+```TOML
+Symmetries = [
+  [0, 1, 2, 3, ...],
+  [1, 0, 3, 2, ...],
+  ...
+]
+```
+
+Only one operation per distinct site permutation is written (see [`distinct_operations`](@ref)).
+If operations other than the identity act trivially on the sites (see [`trivial_operations`](@ref)),
+which happens on small or thin clusters, the omitted operations are reported in a comment block.
+The format of this report is a placeholder and may change.
+
+Site indices follow `zero_based` as in [`toml_interactions`](@ref). Codes such as
+[XDiag](https://github.com/awietek/xdiag) expect 0-based indices, so a warning is issued for
+`zero_based=false`.
+"""
+function toml_symmetries(g::FiniteSpaceGroup; zero_based::Bool=false, out_str::String="") :: String
+    zero_based || @warn "Symmetries are written with 1-based site indices, but codes like XDiag expect 0-based indices. Use `zero_based=true`."
+    offset = zero_based ? 1 : 0
+    sg = g.spacegroup
+
+    out_str *= @sprintf "# Symmetry group of the cluster: %s (#%d), point group %s (%s), %d operations\n" g.symbol g.number g.pointgroup g.schoenflies length(g)
+    out_str *= @sprintf "# Symmetry group of the infinite lattice: %s (#%d), point group %s (%s)\n" sg.symbol sg.number sg.pointgroup sg.schoenflies
+    if length(trivial_operations(g)) > 1
+        out_str *= toml_omitted_symmetries_placeholder(g)
+    end
+
+    out_str *= "Symmetries = [\n"
+    for k in distinct_operations(g)
+        out_str *= "  [" * join(g.permutations[k] .- offset, ", ") * "],\n"
+    end
+    out_str *= "]\n"
+    return out_str
+end
+
+# PLACEHOLDER for omitted symmetry operations.
+# Operations that act on the sites like another operation (trivially acting operations
+# on small or thin clusters) are left out of `Symmetries`, since all irreducible
+# representations that are non-trivial on them vanish. How this should be stated in the
+# TOML file is to be decided (to be agreed upon with XDiag). Until then, a comment block
+# with the marker "PLACEHOLDER" reports the omission.
+function toml_omitted_symmetries_placeholder(g::FiniteSpaceGroup) :: String
+    trivial = trivial_operations(g)
+    nomitted = length(g) - length(distinct_operations(g))
+    s  = "# PLACEHOLDER (TOML format to be decided): omitted symmetry operations\n"
+    s *= @sprintf "# %d of the %d symmetry operations of this cluster are not listed in `Symmetries`, because\n" nomitted length(g)
+    s *= "# they permute the sites in the same way as another operation. The following operations\n"
+    s *= "# act trivially on the sites (coordinates in the lattice basis):\n"
+    for k in trivial[2:end]
+        s *= "#   " * _xyz_string(g.operations[k]) * "\n"
+    end
+    s *= "# Irreducible representations that are not trivial on these operations vanish on this cluster.\n"
+    return s
+end
 
 """
     toml_interactions(opsum::OpSum; zero_based::Bool=false, out_str::String="") -> String

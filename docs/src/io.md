@@ -30,6 +30,25 @@ Interactions = [
 Site indices are 1-based by default; pass `zero_based=true` for 0-based
 indices.
 
+With `symmetries=true`, a `Symmetries` section with the site permutations of the
+symmetry operations of the cluster is appended (see [Symmetries](symmetries.md)):
+
+```julia
+fl = FiniteLattice(maple_leaf, [1 1; 1 -2], true)
+H = neighbor_interaction("SdotS", "J", fl)
+write_toml(fl, H, "maple_leaf-N-18.toml"; zero_based=true, symmetries=true)
+```
+
+```toml
+# Symmetry group of the cluster: p6 (#16), point group 6 (C6), 18 operations
+# Symmetry group of the infinite lattice: p6 (#16), point group 6 (C6)
+Symmetries = [
+  [0, 1, 2, ...],
+  [1, 2, 0, ...],
+  ...
+]
+```
+
 ```@docs
 write_toml
 read_toml_interaction
@@ -44,4 +63,5 @@ toml_metadata
 toml_lattice
 toml_coordinates
 toml_interactions
+toml_symmetries
 ```
