@@ -2,10 +2,10 @@ using Revise
 using Latlib
 
 # pick number of sites (atoms) in finite cluster (e.g. 16 or 32)
-N = 8
+N = 32
 
-# for most N, there are multiple finite clusters, pick a "version" here starting form 1
-ver = 1
+# for most N, there are multiple finite clusters, pick a "version" here starting from 1
+ver = 7
 
 fl_vecs = nothing
 
@@ -30,6 +30,12 @@ if (N, ver) == (16, 1)
         LatticeVector(hyperhoneycomb, [-1, 1, 1]),  # t1
         LatticeVector(hyperhoneycomb, [1, 1, -1]),  # t2
         LatticeVector(hyperhoneycomb, [-1, 1, -1]), # t3
+    ]
+elseif (N, ver) == (16, 2)
+    fl_vecs = [
+        LatticeVector(hyperhoneycomb, [-1, 1, 1]),  # t1
+        LatticeVector(hyperhoneycomb, [0, 1, -1]),  # t2
+        LatticeVector(hyperhoneycomb, [-2, 2, -2]),  # t3
     ]
 end
 
@@ -58,6 +64,27 @@ elseif (N, ver) == (32, 4)
         LatticeVector(hyperhoneycomb, [-1, 1, 1]), # t1
         LatticeVector(hyperhoneycomb, [2, 2, -2]), # t2
         LatticeVector(hyperhoneycomb, [-1, 1, -1]),# t3
+    ]
+elseif (N, ver) == (32, 5)
+    # 4 copies of 8v1 stacked up and right from origin
+    fl_vecs = [
+        LatticeVector(hyperhoneycomb, [-2, 2, 2]),  # t1
+        LatticeVector(hyperhoneycomb, [0, 2, -2]),  # t2
+        LatticeVector(hyperhoneycomb, [-1, 1, -1]),  # t3
+    ]
+elseif (N, ver) == (32, 6)
+    # 4 copies of 8v1 stacked to the front and to the right from origin
+    fl_vecs = [
+        LatticeVector(hyperhoneycomb, [-1, 1, 1]),  # t1
+        LatticeVector(hyperhoneycomb, [0, 2, -2]),  # t2
+        LatticeVector(hyperhoneycomb, [-2, 2, -2]),  # t3
+    ]
+elseif (N, ver) == (32, 7)
+    # 4 copies of 8v1 stacked up and to the front from origin
+    fl_vecs = [
+        LatticeVector(hyperhoneycomb, [-2, 2, 2]),  # t1
+        LatticeVector(hyperhoneycomb, [0, 1, -1]),  # t2
+        LatticeVector(hyperhoneycomb, [-2, 2, -2]),  # t3
     ]
 end
 
