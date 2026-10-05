@@ -64,34 +64,120 @@ function distance_vector(x1::EuclideanVector, x2::EuclideanVector; flattice=noth
         # construct "torus matrix" in euclidean coordinates (boundary vecs in columns)
         T = hcat([to_euclidean_basis(vec).coords for vec in periodic_boundary_vecs]...)
 
-        # For n = D periodicity vectors, the next line computes the representation of r_euc in the basis of boundary vectors (which we also could have done by calling FiniteLatticeVector(flattice, r_euc) ... )
-        # For n < D periodicity vectors, the next line computes the linear combination of these vectors that brings us closest to r_euc,
-        # i.e., we minimize | T * u - r_euc |_2 w.r.t. u, where the solution corresponds to the coordinates of the "pseudo-FiniteLatticeVector" of length n < D.
-        r_pseudo_fl_coords = T \ (r_euc.coords)
-        n = length(r_pseudo_fl_coords)
+        # subtract the closest vector of the lattice spanned by the periodic boundary vectors (for
+        # fewer periodic directions than dimensions, the component of r_euc perpendicular to them
+        # does not change which one is closest)
+        return r_euc - EuclideanVector(_closest_lattice_vector(_LatticeReduction(T), r_euc.coords))
+    end
+end
 
-        # ----- ATTENTION ----- 
-        # We now know that r_pseudo_fl_coords minimizes | T * u - r_euc |_2 with u = r_pseudo_fl_coords.
-        # However, the periodicity of the cluster only allows us to perform shifts by integer multiples of the periodicity vectors.
-        # Naively, one would now round r_pseudo_fl_coords to nearest integers, but this is not always correct for strongly non-orthogonal basis vectors.
-        # To properly circumvent this issue, there are well known methods like Niggli/Delaunay reduction etc.
-        # but we here use a dirty work-around for now that should work in at least some  (but still fail in extreme) cases!!!
-        
-        naive_guess = round.(Int, r_pseudo_fl_coords)
-        # Search all 2^d neighboring integer vectors around the naive guess to hopefully find the true minimum
-        better_dist = Inf
-        better_guess = nothing
-        for offset in Iterators.product(ntuple(_ -> -1:1, n)...)
-            n_trial = naive_guess .+ collect(offset)
-            t_trial = EuclideanVector(T * n_trial)
-            dist = norm(t_trial - r_euc)
-            if dist < better_dist
-                better_dist = dist
-                better_guess = n_trial
+
+# ----------------------------------------------------------------------
+#        Closest lattice vector (exact for lattices of rank <= 3)
+# ----------------------------------------------------------------------
+#
+# The vector of a lattice (spanned by the columns of B, rank n <= 3, possibly embedded in more
+# dimensions) closest to a point x is found with the Voronoi-relevant vectors of the lattice. Every
+# lattice of rank n <= 3 has an obtuse superbase b_1, ..., b_n, b_0 = -Σ_i b_i with all b_i·b_j <= 0,
+# obtained by Lagrange-Gauss (n = 2) or Selling (n = 3) reduction, and the sums over its nonempty
+# proper subsets contain all Voronoi-relevant vectors (6 for n = 2, 14 for n = 3; Conway and Sloane,
+# Proc. R. Soc. A 436, 55 (1992)). Starting from rounding in the reduced basis, the candidate y is
+# moved along a relevant vector as long as this brings it closer to x. This stops exactly when x - y
+# lies in the Voronoi cell of the origin, which proves that y is a closest lattice vector. The
+# result does not depend on how skewed the given basis is.
+
+struct _LatticeReduction
+    basis::Matrix{Float64}               # reduced basis (columns) of the lattice
+    pinv::Matrix{Float64}                # its pseudo-inverse
+    relevant::Vector{Vector{Float64}}    # contains all Voronoi-relevant vectors
+    tol::Float64                         # tolerance for squared distances
+end
+
+# obtuse superbase [b_1, ..., b_n, b_0] of the lattice spanned by the columns of B (n <= 3)
+function _obtuse_superbase(B::Matrix{Float64}) :: Vector{Vector{Float64}}
+    n = size(B, 2)
+    bs = [B[:, i] for i in 1:n]
+    n == 1 && return [bs[1], -bs[1]]
+    # pairwise size reduction with rounded multipliers: Lagrange-Gauss reduction for n = 2, and a
+    # fast first step for strongly skewed bases for n = 3
+    changed = true
+    while changed
+        changed = false
+        for i in 1:n, j in 1:n
+            i == j && continue
+            m = round(dot(bs[i], bs[j]) / dot(bs[j], bs[j]))
+            if m != 0 && norm(bs[i] - m * bs[j]) < (1 - 1e-12) * norm(bs[i])
+                bs[i] -= m * bs[j]
+                changed = true
             end
         end
-        return r_euc - EuclideanVector(T * better_guess)
     end
+    if n == 2
+        # |b_1·b_2| <= |b_i|^2 / 2, so the superbase is obtuse once b_1·b_2 <= 0
+        dot(bs[1], bs[2]) > 0 && (bs[2] = -bs[2])
+        return [bs[1], bs[2], -bs[1] - bs[2]]
+    end
+    # Selling reduction: while b_i·b_j > 0, replace b_i -> -b_i and b_k -> b_k + b_i for the other
+    # two vectors; this strictly decreases the sum of the squared lengths
+    sb = [bs[1], bs[2], bs[3], -bs[1] - bs[2] - bs[3]]
+    tol = 1e-12 * maximum(b -> dot(b, b), sb)
+    pairs = [(i, j) for i in 1:4 for j in i+1:4]
+    for _ in 1:10_000
+        p = findfirst(((i, j),) -> dot(sb[i], sb[j]) > tol, pairs)
+        isnothing(p) && return sb
+        i, j = pairs[p]
+        for k in 1:4
+            (k == i || k == j) || (sb[k] += sb[i])
+        end
+        sb[i] = -sb[i]
+    end
+    error("Selling reduction of the lattice spanned by $B did not converge. This is a bug, please report!")
+end
+
+function _LatticeReduction(B::AbstractMatrix)
+    B = Matrix{Float64}(B)
+    n = size(B, 2)
+    1 <= n <= 3 || throw(ArgumentError("Closest lattice vectors are implemented for lattices of rank 1 to 3, got rank $n."))
+    superbase = _obtuse_superbase(B)
+    R = hcat(superbase[1:n]...)
+    if cond(R) > 1e8
+        error("The lattice spanned by the columns of $B is nearly degenerate (condition number $(cond(R)) of its reduced basis), so closest lattice vectors cannot be determined reliably.")
+    end
+    relevant = [sum(superbase[i] for i in 1:n+1 if isodd(mask >> (i - 1))) for mask in 1:2^(n+1)-2]
+    return _LatticeReduction(R, pinv(R), relevant, 1e-10 * maximum(v -> dot(v, v), relevant))
+end
+
+# a lattice vector closest to x
+function _closest_lattice_vector(red::_LatticeReduction, x::AbstractVector) :: Vector{Float64}
+    y = red.basis * round.(red.pinv * x)
+    r = x - y
+    for _ in 1:1000
+        gain, i = findmax(v -> 2 * dot(r, v) - dot(v, v), red.relevant)
+        gain <= red.tol && return y      # x - y lies in the Voronoi cell of the origin
+        y += red.relevant[i]
+        r -= red.relevant[i]
+    end
+    error("No closest lattice vector found for $x. This is a bug, please report!")
+end
+
+# all lattice vectors closest to x (several if x lies on the boundary of a Voronoi cell). They are
+# the vertices of a face of the Delaunay tiling, connected by its edges, which are relevant vectors.
+function _closest_lattice_vectors(red::_LatticeReduction, x::AbstractVector) :: Vector{Vector{Float64}}
+    y = _closest_lattice_vector(red, x)
+    d2 = sum(abs2, x - y)
+    found = [y]
+    queue = [y]
+    while !isempty(queue)
+        z = pop!(queue)
+        for v in red.relevant
+            w = z + v
+            if sum(abs2, x - w) <= d2 + red.tol && !any(u -> sum(abs2, u - w) < red.tol, found)
+                push!(found, w)
+                push!(queue, w)
+            end
+        end
+    end
+    return found
 end
 
 function (d::PeriodicEuclideanMetric)(x::EuclideanVector, y::EuclideanVector) :: Float64

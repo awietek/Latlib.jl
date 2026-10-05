@@ -42,34 +42,8 @@ end
 _rotate2d(v::AbstractVector, θ::Real) = [cos(θ) -sin(θ); sin(θ) cos(θ)] * v
 
 # Reduced basis (columns) of the lattice spanned by the columns of B, so that small integer
-# combinations reach all short lattice vectors also for a skewed input basis: pairwise size
-# reduction, then the successive minima among small combinations (a basis in two and three dimensions)
-function _reduced_basis(B::AbstractMatrix) :: Matrix{Float64}
-    B = Matrix{Float64}(B)
-    D = size(B, 2)
-    changed = true
-    while changed
-        changed = false
-        for i in 1:D, j in 1:D
-            i == j && continue
-            m = round(dot(B[:, i], B[:, j]) / dot(B[:, j], B[:, j]))
-            if m != 0 && norm(B[:, i] - m * B[:, j]) < norm(B[:, i]) - 1e-12
-                B[:, i] -= m * B[:, j]
-                changed = true
-            end
-        end
-    end
-    combinations = sort([collect(n) for n in Iterators.product(ntuple(_ -> -2:2, D)...) if any(!=(0), n)]; by=n -> norm(B * n))
-    chosen = Vector{Int}[]
-    for n in combinations
-        M = hcat(chosen..., n)
-        rank(Float64.(M)) == length(chosen) + 1 || continue
-        length(chosen) + 1 == D && abs(round(Int, det(Float64.(M)))) != 1 && continue
-        push!(chosen, n)
-        length(chosen) == D && return B * hcat(chosen...)
-    end
-    return B
-end
+# combinations reach all short lattice vectors also for a skewed input basis (see `_LatticeReduction`)
+_reduced_basis(B::AbstractMatrix) :: Matrix{Float64} = _LatticeReduction(B).basis
 
 # lattice vectors (Cartesian) with coordinates in -n:n in a reduced basis, sorted by length and angle
 function _lattice_vectors_2d(lattice::Lattice, n::Int)
@@ -113,12 +87,8 @@ _isreciprocal(lattice::Lattice, q::AbstractVector; atol=1e-8) = all(is_whole.(la
 
 # all images of a Cartesian momentum k in the first Brillouin zone (several on the zone boundary)
 function _bz_images(lattice::Lattice, k::AbstractVector) :: Vector{Vector{Float64}}
-    Bstar = _reduced_basis(2π * inv(lattice.A))    # columns: reciprocal lattice vectors
-    D = length(k)
-    k0 = k - Bstar * round.(Bstar \ k)              # close to the origin also for a skewed lattice basis
-    candidates = [k0 + Bstar * collect(n) for n in Iterators.product(ntuple(_ -> -3:3, D)...)]
-    dmin = minimum(norm, candidates)
-    return [[abs(x) < 1e-12 ? 0.0 : x for x in q] for q in candidates if norm(q) < dmin + 1e-9]
+    reciprocal = _LatticeReduction(2π * inv(lattice.A))    # columns: reciprocal lattice vectors
+    return [[abs(x) < 1e-12 ? 0.0 : x for x in k - G] for G in _closest_lattice_vectors(reciprocal, k)]
 end
 
 # image of a Cartesian momentum k in the first Brillouin zone with the largest components along the

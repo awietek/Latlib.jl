@@ -589,4 +589,71 @@
     
 
 
+
+    @testset "closest lattice vector (skewed bases)" begin
+        # exact reference: all lattice points B c with |x - B c| <= ρ (ρ: distance to the rounded
+        # point) satisfy |c_i - c0_i| <= ρ |row i of pinv(B)|
+        function reference(B, x)
+            P = pinv(B); c0 = P * x
+            ρ = norm(x - B * round.(c0)) + 1e-9
+            ranges = [floor(Int, c0[i] - ρ * norm(P[i, :])):ceil(Int, c0[i] + ρ * norm(P[i, :])) for i in 1:size(B, 2)]
+            points = [B * collect(c) for c in Iterators.product(ranges...)]
+            d = [norm(x - y) for y in points]
+            return points[findall(<(minimum(d) + 1e-7), d)]
+        end
+        frac(x) = x - floor(x)
+        sameset(a, b) = length(a) == length(b) && all(y -> any(z -> norm(y - z) < 1e-7, b), a)
+        for (D, n) in [(2, 1), (2, 2), (3, 1), (3, 2), (3, 3)], t in 1:12
+            # a lattice and a strongly skewed basis of it (deterministic unimodular column operations)
+            B0 = [1.0 0.3 -0.2; 0.2 1.1 0.4; -0.1 0.5 0.9][1:D, 1:n] + 0.3 * [sin(t + i + 3j) for i in 1:D, j in 1:n]
+            B = copy(B0)
+            for step in 1:8
+                i, j = 1 + (t + step) % n, 1 + (t + 2step) % n
+                i == j || (B[:, i] += (((t * step) % 7) - 3) * B[:, j])
+            end
+            red = Latlib._LatticeReduction(B)
+            # the reduced basis spans the same lattice: integer coordinates with determinant ±1
+            C = B \ red.basis
+            @test all(isapprox.(C, round.(C); atol=1e-6)) && abs(round(Int, det(round.(C)))) == 1
+            for q in 1:15
+                c = q <= 10 ? 8 * frac.(q * sqrt.([2.0, 3.0, 5.0][1:n])) .- 4 : [((q + i) % 3) / 2 for i in 1:n]   # boundary points
+                x = red.basis * c + (D > n ? 0.3 * nullspace(B')[:, 1] : zeros(D))   # off the span for n < D
+                expected = reference(red.basis, x)
+                @test any(y -> norm(y - Latlib._closest_lattice_vector(red, x)) < 1e-7, expected)
+                @test sameset(Latlib._closest_lattice_vectors(red, x), expected)
+            end
+        end
+        # images of zone vertices in the first Brillouin zone
+        @test length(Latlib._bz_images(simple_cubic, [π, π, π])) == 8
+        @test length(Latlib._bz_images(square, [π, π])) == 4
+        @test length(Latlib._bz_images(triangular, 2π * (triangular.A \ [1/3, 2/3]))) == 3   # K
+        # nearly degenerate lattices are rejected
+        @test_throws ErrorException Latlib._LatticeReduction([1.0 1.0; 0.0 1e-10])
+
+        # a torus with a skewed boundary basis has the same bonds as with a reduced one
+        function same_bonds(fl1, fl2, num_distance)
+            T = Matrix{Float64}((fl1.boundary * fl1.lattice.A)')
+            x1, x2 = [x.coords for x in atoms(fl1)], [x.coords for x in atoms(fl2)]
+            σ = [findfirst(y -> (u = T \ (x - y); norm(u - round.(u)) < 1e-6), x1) for x in x2]
+            bonds(fl, f) = Set(Tuple(sort([f(i), f(j)])) for (i, j) in neighbors(fl; num_distance=num_distance))
+            return bonds(fl1, identity) == bonds(fl2, i -> σ[i])
+        end
+        for (lattice, reduced, skewed) in [(square, [6 0; -1 3], [6 0; 17 3]), (triangular, [6 0; -1 3], [6 0; 17 3]),
+                                           (kagome, [3 0; 1 3], [3 0; 13 3]),
+                                           (simple_cubic, [3 0 0; 0 3 0; 0 0 2], [3 0 0; 12 3 0; 9 6 2])]
+            for nd in 1:3
+                @test same_bonds(FiniteLattice(lattice, reduced, true), FiniteLattice(lattice, skewed, true), nd)
+            end
+        end
+        @test same_bonds(FiniteLattice(fcc, [2 0 0; 0 2 0; 0 0 2], true), FiniteLattice(fcc, [2 0 0; 8 2 0; 6 4 2], true), 1)
+
+        # two skewed periodic directions in 3D (slab): distance vectors against the reference
+        fl = FiniteLattice(simple_cubic, [3 0 0; 11 4 0; 0 0 3], [true, true, false])
+        T = Matrix{Float64}(([3 0 0; 11 4 0] * simple_cubic.A)')
+        for q in 1:20
+            x = EuclideanVector(8 * frac.(q * sqrt.([2.0, 3.0, 7.0])) .- 4)
+            r = distance_vector(EuclideanVector([0.0, 0, 0]), x; flattice=fl)
+            @test norm(r.coords) ≈ minimum(y -> norm(x.coords - y), reference(T, x.coords))
+        end
+    end
 end
