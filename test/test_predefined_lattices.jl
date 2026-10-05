@@ -209,9 +209,8 @@ using LinearAlgebra
                 ['KZ', 'SzSz', 0, 15],
                 ]"
             @test replace(interaction_string, r"\s+" => "") == replace(interaction_string_ref, r"\s+" => "")
-            # check if the interaction string is the same as the one obtained from reading the TOML file in the example
-            
-            toml_opsum_16 = read_toml_interaction(joinpath(@__DIR__, "..", "examples/Hyperhoneycomb/hyperhoneycomb-N-16-ver-1.toml"); zero_based=true)            
+            # check if the interactions are the same as the ones read from a TOML file written by an earlier version of Latlib
+            toml_opsum_16 = read_toml_interaction(joinpath(@__DIR__, "data", "hyperhoneycomb-N-16-ver-1.toml"); zero_based=true)
             @test (opsum_16_HB + opsum_16_kitaev) == toml_opsum_16
         end
 
