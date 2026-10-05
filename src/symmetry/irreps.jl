@@ -76,13 +76,15 @@ end
 function _symmetry_center(sg::SpaceGroup, origin) :: Vector{Float64}
     lattice = sg.lattice
     if !isnothing(origin)
-        if origin isa LatticeVector
-            x = origin.coords
-        elseif origin isa EuclideanVector
-            x = lattice.A' \ origin.coords
-        else
+        # a LatticeVector refers to the basis of its own lattice, an EuclideanVector to Cartesian coordinates
+        if !(origin isa LatticeVector || origin isa EuclideanVector)
             throw(ArgumentError("`origin` must be a `LatticeVector` or an `EuclideanVector`."))
         end
+        cartesian = origin isa LatticeVector ? to_euclidean_basis(origin).coords : origin.coords
+        if length(cartesian) != dim(lattice)
+            throw(ArgumentError("`origin` has dimension $(length(cartesian)), the lattice has dimension $(dim(lattice))."))
+        end
+        x = lattice.A' \ cartesian
         Ws = pointgroup_operations(sg)
         if !all(W -> all(is_whole.((I - W) * (x - sg.origin); atol=1e-6)), Ws)
             throw(ArgumentError("The origin " * _describe_point(lattice, x) * " does not have the full point-group symmetry $(sg.pointgroup) of the lattice."))
@@ -120,7 +122,8 @@ used, and a warning is issued. Operations that act on the sites like another ope
 [`trivial_operations`](@ref)) are represented by a single site permutation.
 
 # Keyword arguments
-- `origin=nothing`: symmetry center as a [`LatticeVector`](@ref) or [`EuclideanVector`](@ref).
+- `origin=nothing`: symmetry center, as a [`LatticeVector`](@ref) (coordinates in the basis of its
+  lattice) or an [`EuclideanVector`](@ref) (Cartesian coordinates).
 - `symprec::Float64=1e-5`: tolerance passed to [`spacegroup`](@ref).
 
 # Examples

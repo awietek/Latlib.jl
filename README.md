@@ -16,11 +16,8 @@ exact diagonalization or other many-body codes such as
 ## Features
 
 - **Lattices in 2D and 3D**: define a `Lattice` from its Bravais vectors and
-  atom positions, or use one of the predefined lattices (`square`,
-  `triangular`, `honeycomb`, `kagome`, `shastry_sutherland`,
-  `shastry_sutherland_non_symmorphic`, `lieb`, `trellis`,
-  `maple_leaf`, `hyperhoneycomb`, `simple_cubic`, `bcc`, `fcc`, `diamond`,
-  `pyrochlore`, `simple_hexagonal`, `hcp`).
+  atom positions, or use one of the
+  [predefined lattices](#currently-predefined-lattices).
 - **Finite clusters**: a `FiniteLattice` is a lattice cut by a boundary box
   given as integer combinations of the lattice vectors, with periodic or open
   boundaries in each direction.
@@ -45,6 +42,38 @@ exact diagonalization or other many-body codes such as
   (`write_toml`) and read interactions back (`read_toml_interaction`).
 - **Plotting**: interactive 2D and 3D plots of clusters, bonds, and spin
   configurations with [GLMakie](https://docs.makie.org).
+
+## Currently predefined lattices
+
+| Lattice | Dimension | Space group | Symmorphic |
+|:--------|:---------:|:------------|:----------:|
+| `square` | 2 | p4mm (#11) | yes |
+| `triangular` | 2 | p6mm (#17) | yes |
+| `honeycomb` | 2 | p6mm (#17) | yes |
+| `kagome` | 2 | p6mm (#17) | yes |
+| `shastry_sutherland` | 2 | p4mm (#11)¹ | yes |
+| `shastry_sutherland_non_symmorphic` | 2 | p4gm (#12) | no |
+| `lieb` | 2 | p4mm (#11) | yes |
+| `trellis` | 2 | c2mm (#9) | yes |
+| `maple_leaf` | 2 | p6 (#16) | yes |
+| `hyperhoneycomb` | 3 | Fddd (#70) | no |
+| `simple_cubic` | 3 | Pm-3m (#221) | yes |
+| `bcc` | 3 | Im-3m (#229) | yes |
+| `fcc` | 3 | Fm-3m (#225) | yes |
+| `diamond` | 3 | Fd-3m (#227) | no |
+| `pyrochlore` | 3 | Fd-3m (#227) | no |
+| `simple_hexagonal` | 3 | P6/mmm (#191) | yes |
+| `hcp` | 3 | P6_3/mmc (#194) | no |
+
+The space groups (plane groups in 2D) are those found by `spacegroup` from the
+atom positions and types; couplings are not taken into account. Irreducible
+representations are available for the symmorphic ones.
+
+¹ The sites of `shastry_sutherland` form a square lattice (its unit cell of four
+sites is not primitive). The dimer bonds of the Shastry–Sutherland model, which
+lower the symmetry to p4gm, are not part of the lattice. In
+`shastry_sutherland_non_symmorphic`, the p4gm symmetry is built into the
+geometry.
 
 ## Installation
 
@@ -147,6 +176,8 @@ More complete scripts, including Kitaev interactions on the hyperhoneycomb
 lattice, a Shastry-Sutherland cylinder, and plotting of spin configurations,
 are in the [`examples`](examples) directory and are walked through on the
 [Examples](https://awietek.github.io/Latlib.jl/examples/) page of the documentation.
+[`examples/lattices`](examples/lattices) contains a script for every predefined
+lattice that writes TOML files of several clusters, including their symmetries.
 
 ## Site ordering
 

@@ -210,6 +210,17 @@ const LEGACY_FILES = ["maple.leaf.JhexagonJtriangleJdimer.12.v1.2sl.toml",
         @test symmetries(FiniteLattice(kagome, [2 0; 0 2], true)).origin ≈ [1/2, 1/2]
         # origin as EuclideanVector
         @test symmetries(fl; origin=EuclideanVector([0.5, 0.5])).origin ≈ [0.5, 0.5]
+        # an EuclideanVector is Cartesian, a LatticeVector refers to the basis of its own lattice
+        flt = FiniteLattice(trellis, [4 0; -2 4], true)
+        center = trellis.A' \ [0.5, 0.5]
+        @test symmetries(flt; origin=EuclideanVector([0.5, 0.5])).origin ≈ center
+        @test symmetries(flt; origin=LatticeVector(trellis, center)).origin ≈ center
+        @test_throws ArgumentError symmetries(flt; origin=LatticeVector(trellis, [0.5, 0.5]))   # not a center
+        skewed = Lattice([1.0 0.0; 1.0 1.0])            # square lattice, other basis
+        fls = FiniteLattice(skewed, [4 0; -4 4], true)
+        @test symmetries(fls; origin=LatticeVector(square, [0.5, 0.5])).origin ≈ [0.0, 0.5]   # plaquette center
+        @test symmetries(fls; origin=LatticeVector(skewed, [0.0, 0.5])).origin ≈ [0.0, 0.5]
+        @test_throws ArgumentError symmetries(fl; origin=EuclideanVector([0.5, 0.5, 0.0]))     # wrong dimension
 
         # the two centers give the same sectors at M, with different labels
         cs1 = symmetries(fl; origin=LatticeVector(square, [0.0, 0.0]))

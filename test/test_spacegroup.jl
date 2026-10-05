@@ -213,7 +213,7 @@ const CLUSTER_CASES = Dict(
         ([-1 1 1; 1 -1 1; 2 2 -2], "I4_1/amd", 16, 128),
     ],
     "hyperhoneycomb" => [
-        ([-1 1 1; 0 1 -1; -1 1 -1], "Fddd", 8, 16),   # 8-site cluster of examples/Hyperhoneycomb
+        ([-1 1 1; 0 1 -1; -1 1 -1], "Fddd", 8, 16),   # 8-site cluster of examples/lattices/hyperhoneycomb
         ([-1 1 1; 0 1 -1; -2 2 -2], "C2/c", 4, 16),   # 16-site cluster: monoclinic subgroup
     ],
 )
