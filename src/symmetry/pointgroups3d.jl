@@ -112,9 +112,9 @@ _along_secondary(v::AbstractVector, ctx::_NamingContext3D) = any(s -> _parallel3
 function _lexicographic(Rs, list::Vector{Int}, ctx::_NamingContext3D) :: Int
     function key(i)
         x = ctx.conventional \ _rotation_axis(Rs[i])
-        x = round.(x / maximum(abs, x); digits=8)
+        x = round.(x / maximum(abs, x); digits=8) .+ 0.0    # no signed zeros: isless(-0.0, 0.0)
         j = findfirst(v -> v != 0, x)
-        return x[j] < 0 ? -x : x
+        return x[j] < 0 ? -x .+ 0.0 : x
     end
     return list[argmax([Tuple(key(i)) for i in list])]
 end

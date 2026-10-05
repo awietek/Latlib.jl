@@ -116,9 +116,16 @@ the infinite lattice but not of the cluster belong to different stars. A sector 
 - **Three-dimensional irreps** (`T` irreps of the cubic little co-groups) cannot be written as
   one-dimensional characters. They are skipped with a warning; TOML files get a prominent banner.
 
-The axes that the Mulliken names refer to are chosen from the momentum and the lattice only, so
-that every momentum of a star gets the same names (carried over by the symmetries of the cluster).
-Where the little co-group alone does not fix them:
+The axes that the Mulliken names refer to are chosen from the momentum, the lattice and the
+cluster, so that every momentum of a star gets the same names (carried over by the symmetries of
+the cluster), and the names do not depend on how the cluster is described: on the Cartesian
+orientation, the basis of the lattice, the boundary vectors or the order of the sites. If the
+cluster has less symmetry than the lattice, it distinguishes between equivalent axes of the
+lattice (e.g. the two axes of the square lattice on a ``4 \times 2`` torus). The conventional
+basis ``\mathbf{a}, \mathbf{b}, (\mathbf{c})`` is then the one in which the cluster has the
+lexicographically smallest description: the Hermite normal form of the lattice of torus vectors,
+then the positions of the atoms relative to the symmetry center. Repeated momentum labels are
+numbered in an order fixed by the same basis. Where the little co-group alone does not fix the axes:
 
 - `C2v` (`B1` even under ``\sigma(xz)``): the mirror containing ``\mathbf{k}``. If the twofold axis is
   along ``\mathbf{k}``, the mirror perpendicular to the principal axis of the lattice (for cubic

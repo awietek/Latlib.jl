@@ -41,9 +41,40 @@ end
 
 _rotate2d(v::AbstractVector, θ::Real) = [cos(θ) -sin(θ); sin(θ) cos(θ)] * v
 
-# lattice vectors (Cartesian) with coordinates in -n:n, sorted by length and angle
+# Reduced basis (columns) of the lattice spanned by the columns of B, so that small integer
+# combinations reach all short lattice vectors also for a skewed input basis: pairwise size
+# reduction, then the successive minima among small combinations (a basis in two and three dimensions)
+function _reduced_basis(B::AbstractMatrix) :: Matrix{Float64}
+    B = Matrix{Float64}(B)
+    D = size(B, 2)
+    changed = true
+    while changed
+        changed = false
+        for i in 1:D, j in 1:D
+            i == j && continue
+            m = round(dot(B[:, i], B[:, j]) / dot(B[:, j], B[:, j]))
+            if m != 0 && norm(B[:, i] - m * B[:, j]) < norm(B[:, i]) - 1e-12
+                B[:, i] -= m * B[:, j]
+                changed = true
+            end
+        end
+    end
+    combinations = sort([collect(n) for n in Iterators.product(ntuple(_ -> -2:2, D)...) if any(!=(0), n)]; by=n -> norm(B * n))
+    chosen = Vector{Int}[]
+    for n in combinations
+        M = hcat(chosen..., n)
+        rank(Float64.(M)) == length(chosen) + 1 || continue
+        length(chosen) + 1 == D && abs(round(Int, det(Float64.(M)))) != 1 && continue
+        push!(chosen, n)
+        length(chosen) == D && return B * hcat(chosen...)
+    end
+    return B
+end
+
+# lattice vectors (Cartesian) with coordinates in -n:n in a reduced basis, sorted by length and angle
 function _lattice_vectors_2d(lattice::Lattice, n::Int)
-    vs = [lattice.A' * [i, j] for i in -n:n for j in -n:n if (i, j) != (0, 0)]
+    R = _reduced_basis(lattice.A')
+    vs = [R * [i, j] for i in -n:n for j in -n:n if (i, j) != (0, 0)]
     return sort(vs; by=v -> (round(norm(v); digits=8), mod(atan(v[2], v[1]), 2π)))
 end
 
@@ -80,21 +111,33 @@ end
 # whether a Cartesian vector q is a reciprocal lattice vector
 _isreciprocal(lattice::Lattice, q::AbstractVector; atol=1e-8) = all(is_whole.(lattice.A * q / (2π); atol=atol))
 
+# all images of a Cartesian momentum k in the first Brillouin zone (several on the zone boundary)
+function _bz_images(lattice::Lattice, k::AbstractVector) :: Vector{Vector{Float64}}
+    Bstar = _reduced_basis(2π * inv(lattice.A))    # columns: reciprocal lattice vectors
+    D = length(k)
+    k0 = k - Bstar * round.(Bstar \ k)              # close to the origin also for a skewed lattice basis
+    candidates = [k0 + Bstar * collect(n) for n in Iterators.product(ntuple(_ -> -3:3, D)...)]
+    dmin = minimum(norm, candidates)
+    return [[abs(x) < 1e-12 ? 0.0 : x for x in q] for q in candidates if norm(q) < dmin + 1e-9]
+end
+
+# image of a Cartesian momentum k in the first Brillouin zone with the largest components along the
+# axes of the conventional basis `frame` (columns), lexicographically; on the zone boundary, this
+# fixes one of the images independently of the Cartesian orientation
+function _canonical_image(lattice::Lattice, frame::AbstractMatrix, k::AbstractVector) :: Vector{Float64}
+    units = [normalize(frame[:, j]) for j in 1:size(frame, 2)]
+    return argmax(q -> [round(dot(e, q); digits=8) + 0.0 for e in units], _bz_images(lattice, k))
+end
+
 # image of a Cartesian momentum k in the first Brillouin zone; on the zone boundary, the
 # image with the largest (kx, ky) is chosen
-function _first_bz(lattice::Lattice, k::AbstractVector) :: Vector{Float64}
-    Bstar = 2π * inv(lattice.A)    # columns: reciprocal lattice vectors
-    D = length(k)
-    candidates = [k + Bstar * collect(n) for n in Iterators.product(ntuple(_ -> -3:3, D)...)]
-    dmin = minimum(norm, candidates)
-    closest = [q for q in candidates if norm(q) < dmin + 1e-9]
-    best = sort(closest; by=q -> Tuple(round.(q; digits=9)), rev=true)[1]
-    return [abs(x) < 1e-12 ? 0.0 : x for x in best]
-end
+_first_bz(lattice::Lattice, k::AbstractVector) :: Vector{Float64} =
+    sort(_bz_images(lattice, k); by=q -> Tuple(round.(q; digits=9) .+ 0.0), rev=true)[1]
 
 # Bilbao label (without numbering) of a Cartesian momentum k
 function _kpoint_label_2d(lattice::Lattice, holo::_Holohedry, k::AbstractVector) :: String
     _isreciprocal(lattice, k) && return "Gamma"
+    k = _first_bz(lattice, k)   # the shifts below are small
     table = _KPOINT_LABELS_2D[holo.type]
     Cstar = 2π * inv(holo.conventional)'   # columns: conventional reciprocal basis vectors
     for (label, kc) in table.points
@@ -109,7 +152,7 @@ function _kpoint_label_2d(lattice::Lattice, holo::_Holohedry, k::AbstractVector)
         abs(abs(x) - 1) < 1e-8 && return "F"
         return "GP"
     end
-    Bstar = 2π * inv(lattice.A)
+    Bstar = _reduced_basis(2π * inv(lattice.A))
     shifts = [Bstar * collect(n) for n in Iterators.product(-2:2, -2:2)]
     for (label, k0, d, αmax) in table.lines
         k0c, dc = Cstar * k0, Cstar * d
@@ -168,8 +211,7 @@ function _holohedry3d(lattice::Lattice) :: _Holohedry3D
     C = latmat * inv(dataset.transformation_matrix)   # conventional basis in the Cartesian frame of the lattice
     Rs = [cartesian_rotation(op, bravais) for op in operations(spacegroup(bravais))]
     hexagonal = number in (166, 191)
-    principal = number in (10, 12) ? C[:, 2] : C[:, 3]
-    secondary = normalize.(hexagonal ? [C[:, 1], C[:, 2], C[:, 1] + C[:, 2], C[:, 3]] : [C[:, 1], C[:, 2], C[:, 3]])
+    principal, secondary = _directions3d(number, C)
     Cstar = 2π * inv(C)'
     families = _KFamily[]
     for (label, k0, ds, order) in sort(_KPOINT_LABELS_3D[number]; by=f -> length(f[3]))
@@ -179,6 +221,15 @@ function _holohedry3d(lattice::Lattice) :: _Holohedry3D
         push!(families, _KFamily(label, k0c, directions, order))
     end
     return _Holohedry3D(number, Rs, C, principal, secondary, hexagonal, families)
+end
+
+# principal direction (c, or b for monoclinic lattices) and secondary directions (unit vectors along
+# a, b, c, and a + b for hexagonal lattices) of a conventional basis C (columns) of holohedry `number`
+function _directions3d(number::Integer, C::AbstractMatrix)
+    principal = number in (10, 12) ? C[:, 2] : C[:, 3]
+    hexagonal = number in (166, 191)
+    secondary = normalize.(hexagonal ? [C[:, 1], C[:, 2], C[:, 1] + C[:, 2], C[:, 3]] : [C[:, 1], C[:, 2], C[:, 3]])
+    return principal, secondary
 end
 
 # whether the momentum q (Cartesian) lies in the family f, modulo reciprocal lattice vectors
@@ -229,7 +280,8 @@ A momentum resolved by a periodic finite lattice, see [`momenta`](@ref).
 - `label::String`: label of the momentum following the conventions of the Bilbao
   Crystallographic Server for the Bravais lattice, e.g. `"Gamma"`, `"K"`, `"M"`, `"Sigma"`.
   Generic momenta are labelled `"GP0"`, `"GP1"`, …; other labels are numbered (`"Sigma0"`,
-  `"Sigma1"`, …) only if they occur more than once among the representatives of the stars.
+  `"Sigma1"`, …) only if they occur more than once among the representatives of the stars. The
+  numbers do not depend on the orientation of the lattice or on the representatives.
 - `star::Int`: index of the star (orbit under the point group of the cluster) of the momentum.
 - `representative::Bool`: whether the momentum represents its star.
 - `littlegroup::Vector{Matrix{Int}}`: little co-group, i.e. the rotations (lattice basis) of the
@@ -270,12 +322,14 @@ function _cluster_coords(boundary::Matrix{Int}) :: Vector{Vector{Rational{Int}}}
 end
 
 # Momenta of a finite lattice with point group `pointgroup` (lattice basis)
-function _momenta(flattice::FiniteLattice, pointgroup::Vector{Matrix{Int}}) :: Vector{ClusterMomentum}
+# `frame`: conventional basis (columns, Cartesian) that orders repeated labels, see `_canonical_frame`
+function _momenta(flattice::FiniteLattice, pointgroup::Vector{Matrix{Int}}, frame::AbstractMatrix) :: Vector{ClusterMomentum}
     lattice = flattice.lattice
     holo = dim(lattice) == 2 ? _holohedry(lattice) : _holohedry3d(lattice)
     coords = _cluster_coords(flattice.boundary)
     cartesian(κ) = 2π * (lattice.A \ Float64.(κ))
-    images = [_first_bz(lattice, cartesian(κ)) for κ in coords]
+    allimages = [_bz_images(lattice, cartesian(κ)) for κ in coords]
+    images = [sort(q; by=v -> Tuple(round.(v; digits=9) .+ 0.0), rev=true)[1] for q in allimages]
 
     # stars: orbits under κ -> W^{-T} κ
     index = Dict(κ => i for (i, κ) in enumerate(coords))
@@ -291,7 +345,7 @@ function _momenta(flattice::FiniteLattice, pointgroup::Vector{Matrix{Int}}) :: V
     end
 
     # representative of each star: first one when sorted by (kx, ky) of the first-BZ image, descending
-    order = sortperm([Tuple(round.(q; digits=9)) for q in images]; rev=true)
+    order = sortperm([Tuple(round.(q; digits=9) .+ 0.0) for q in images]; rev=true)
     representative = falses(length(coords))
     seen = Set{Int}()
     for i in order
@@ -301,16 +355,24 @@ function _momenta(flattice::FiniteLattice, pointgroup::Vector{Matrix{Int}}) :: V
         end
     end
 
-    # labels; numbered among representatives if repeated, generic momenta always numbered
+    # labels; numbered among representatives if repeated, generic momenta always numbered. The
+    # numbers follow the stars sorted (descending) by the largest components of their momenta along
+    # the axes of `frame`, which does not depend on the orientation of the lattice or on the representative
     base = [_kpoint_label(lattice, holo, cartesian(κ)) for κ in coords]
+    units = [normalize(frame[:, j]) for j in 1:size(frame, 2)]
+    starkey = Dict{Int, Vector{Float64}}()
+    for i in eachindex(coords), q in allimages[i]
+        key = [round(dot(e, q); digits=8) + 0.0 for e in units]
+        (!haskey(starkey, star[i]) || key > starkey[star[i]]) && (starkey[star[i]] = key)
+    end
+    reps = sort([i for i in eachindex(coords) if representative[i]]; by=i -> starkey[star[i]], rev=true)
     counts = Dict{String, Int}()
-    for i in order
-        representative[i] && (counts[base[i]] = get(counts, base[i], 0) + 1)
+    for i in reps
+        counts[base[i]] = get(counts, base[i], 0) + 1
     end
     number = Dict{Int, Int}()   # star -> number
     used = Dict{String, Int}()
-    for i in order
-        representative[i] || continue
+    for i in reps
         if base[i] == "GP" || counts[base[i]] > 1
             number[star[i]] = get(used, base[i], 0)
             used[base[i]] = number[star[i]] + 1

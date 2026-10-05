@@ -58,7 +58,8 @@ end
 function named_sectors(cs::ClusterSymmetries, k::ClusterMomentum)
     lattice = cs.spacegroup.flattice.lattice
     holo = Latlib.dim(lattice) == 2 ? Latlib._holohedry(lattice) : Latlib._holohedry3d(lattice)
-    _, Ws, sectors, _ = Latlib._pointgroup_sectors(k.littlegroup, lattice, Latlib._naming_context(lattice, holo, k))
+    ctx = Latlib._naming_context(lattice, holo, Latlib._canonical_frame(cs, holo), k)
+    _, Ws, sectors, _ = Latlib._pointgroup_sectors(k.littlegroup, lattice, ctx)
     result = Dict{String, Set{Dict{Matrix{Int}, Int}}}()
     for s in sectors
         table = Dict(Ws[s.elements[j]] => s.exponents[j] for j in eachindex(s.elements))
@@ -318,8 +319,8 @@ const LEGACY_FILES = ["maple.leaf.JhexagonJtriangleJdimer.12.v1.2sl.toml",
         @test length(data2["Symmetries"]) == 16
         @test occursin("PLACEHOLDER (TOML format to be decided): omitted symmetry operations", s2)
         @test occursin("PLACEHOLDER (TOML format to be decided): omitted irreducible representations", s2)
-        @test occursin("#   Gamma.C2v.B2\n", s2)
-        @test !haskey(data2["Gamma"]["C2v"], "B2")
+        @test occursin("#   Gamma.C2v.B1\n", s2)
+        @test !haskey(data2["Gamma"]["C2v"], "B1")
         @test haskey(data2["Gamma"]["C2v"], "A1")
     end
 
@@ -388,7 +389,7 @@ const LEGACY_FILES = ["maple.leaf.JhexagonJtriangleJdimer.12.v1.2sl.toml",
             # (lattice, boundary, origin, representatives, sectors, skipped 3D irreps, vanishing sectors)
             (simple_cubic, [2 0 0; 0 2 0; 0 0 2], o(simple_cubic), ["Gamma.Oh", "M.D4h", "R.Oh", "X.D4h"], 12, 8, 28),
             (simple_cubic, [3 0 0; 0 3 0; 0 0 3], o(simple_cubic), ["Delta.C4v", "Gamma.Oh", "Lambda.C3v", "Sigma.C2v"], 22, 4, 0),
-            (simple_cubic, [4 0 0; 0 2 0; 0 0 2], o(simple_cubic), ["Delta.C4v", "Gamma.D4h", "M0.D2h", "M1.D4h", "R.D4h", "T.C4v", "X0.D4h", "X1.D2h", "Z.C2v"], 25, 0, 55),
+            (simple_cubic, [4 0 0; 0 2 0; 0 0 2], o(simple_cubic), ["Delta.C4v", "Gamma.D4h", "M0.D4h", "M1.D2h", "R.D4h", "T.C4v", "X0.D2h", "X1.D4h", "Z.C2v"], 25, 0, 55),
             (bcc, 2 * [0 1 1; 1 0 1; 1 1 0], nothing, ["Delta.C4v", "Gamma.Oh", "H.Oh", "N.D2h", "P.Td"], 34, 10, 0),
             (fcc, [-2 2 2; 2 -2 2; 2 2 -2], o(fcc), ["Delta.C4v", "Gamma.Oh", "L.D3d", "Sigma.C2v", "W.D2d", "X.D4h"], 44, 4, 0),
             (simple_hexagonal, [3 0 0; 0 3 0; 0 0 2], o(simple_hexagonal), ["A.D6h", "Gamma.D6h", "H.D3h", "K.D3h", "R.C2v", "Sigma.C2v"], 28, 0, 28),
@@ -591,6 +592,35 @@ const LEGACY_FILES = ["maple.leaf.JhexagonJtriangleJdimer.12.v1.2sl.toml",
         tz, tx = Lattice([1.0 0 0; 0 1 0; 0 0 1.7]), Lattice([1.7 0 0; 0 1 0; 0 0 1])
         @test same(FiniteLattice(tz, [2 0 0; 0 2 0; 0 0 3], true), FiniteLattice(tx, [3 0 0; 0 2 0; 0 0 2], true);
                    origin1=site_origin3(tz), origin2=site_origin3(tx))
+
+        # clusters with less symmetry than the lattice: the names refer to axes chosen from the cluster
+        # (`_canonical_frame`), not to the Cartesian orientation of the lattice
+        for θ in (π / 2, 3π / 4, 2.0)
+            rotated = Lattice(square.A * R2(θ)')
+            @test same(FiniteLattice(square, [4 0; 0 2], true), FiniteLattice(rotated, [4 0; 0 2], true);
+                       origin1=site_origin(square), origin2=site_origin(rotated))
+            @test same(FiniteLattice(square, [3 -1; -1 3], true), FiniteLattice(rotated, [3 -1; -1 3], true);
+                       origin1=site_origin(square), origin2=site_origin(rotated))
+        end
+        Rz = [0.0 -1 0; 1 0 0; 0 0 1]
+        for (lattice, boundary) in [(simple_cubic, [4 0 0; 0 2 0; 0 0 3]), (simple_cubic, [3 0 -3; -2 -2 1; 0 -1 -1]),
+                                    (simple_hexagonal, [4 0 0; 0 2 0; 0 0 2])]
+            for R in (Rz, R3), U in (Matrix{Int}(I, 3, 3), [1 1 0; 0 1 0; 1 1 -1], [2 1 1; 1 1 0; 3 2 2])
+                other = Lattice(U * lattice.A * R')
+                @test same(FiniteLattice(lattice, boundary, true), FiniteLattice(other, rebound(boundary, U), true);
+                           origin1=site_origin3(lattice), origin2=site_origin3(other))
+            end
+        end
+        # skewed bases: labels of lines and numbering of repeated labels
+        for (lattice, boundary, U) in [(triangular, [-1 -1; 2 -2], [2 1; 1 1]), (triangular, [-2 -3; -1 -3], [3 -2; -1 1]),
+                                       (square, [0 2; -3 2], [1 2; 1 3])]
+            @test same(FiniteLattice(lattice, boundary, true), FiniteLattice(relabel(lattice, U), rebound(boundary, U), true);
+                       origin1=site_origin(lattice), origin2=site_origin(relabel(lattice, U)))
+        end
+        hexagonal3 = Lattice([1.0 0 0; -0.5 sqrt(3) / 2 0; 0 0 1.6])
+        U = [2 -1 1; 1 0 1; 2 -2 1]
+        @test same(FiniteLattice(hexagonal3, [2 1 1; 1 3 -3; -1 3 -3], true), FiniteLattice(relabel(hexagonal3, U), rebound([2 1 1; 1 3 -3; -1 3 -3], U), true);
+                   origin1=site_origin3(hexagonal3), origin2=site_origin3(relabel(hexagonal3, U)))
 
         # order of the sites: same characters on the relabelled permutations
         fl1 = FiniteLattice(maple_leaf, [1 1; 1 -2], true)
