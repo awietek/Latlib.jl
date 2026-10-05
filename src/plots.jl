@@ -138,7 +138,9 @@ Draws:
 - `show_unit_cell::Bool=false`: show the unit cell parallelepiped at the origin
 - `show_bravais_grid::Bool=false`: show Bravais lattice vectors as arrows at each cell origin
 - `show_neighbors::Bool=true`: show nearest-neighbor bonds (usually correspond to the lattice edges).
-- `site_marksize::Float64=0.15`: Controls the size of the spheres representing lattice sites.
+- `site_marksize::Float64=0.125`: radius of the spheres representing lattice sites, as a fraction of the shortest bond
+    (the nearest-neighbor distance). With `0.25`, the spheres cover a quarter of the shortest bond at either end and leave
+    its middle half free.
 - `draw_periodic_flattice::Bool=false`: show grey copies of finite lattice for each face of the finite lattice boundary.
 - `draw_periodic_flattice_shifts::Vector{Tuple{Int, Int, Int}}=nothing`: when `draw_periodic_flattice=true`, determines 
     which periodic images to draw. Each tuple corresponds to a shift along the three boundary vectors of the finite lattice.
@@ -157,7 +159,7 @@ function plot_3d(flattice::FiniteLattice;
     show_unit_cell::Bool=false,
     show_bravais_grid::Bool=false,
     show_neighbors::Bool=true,
-    site_marksize::Float64=0.15,
+    site_marksize::Float64=0.125,
     draw_periodic_flattice::Bool=false,
     draw_periodic_flattice_shifts::Union{Nothing, Vector{Tuple{Int, Int, Int}}}=nothing,
     scale_factor::Number=1.5,
@@ -260,6 +262,9 @@ function plot_3d(flattice::FiniteLattice;
     end
 
     # --- Atom sites ---
+    # the spheres are scaled with the shortest bond (unit length if there is none, i.e. for a single site)
+    dists = distances(coords; flattice=flattice)
+    shortest_bond = length(dists) > 1 ? dists[2] : 1.0
     n_types = length(unique(lat.types))
     type_colors = Makie.wong_colors()
     n_atoms_per_cell = natoms(flattice)
@@ -278,7 +283,7 @@ function plot_3d(flattice::FiniteLattice;
         zs = [coords[i].coords[3] for i in idxs]
         meshscatter!(ax, xs, ys, zs;
             color=type_colors[mod1(t, length(type_colors))],
-            markersize=site_marksize,
+            markersize=site_marksize * shortest_bond,
             label="type $t")
     end
 
@@ -318,7 +323,7 @@ function plot_3d(flattice::FiniteLattice;
             sy = [p[2] + shift[2] for p in base_positions]
             sz = [p[3] + shift[3] for p in base_positions]
             meshscatter!(ax, sx, sy, sz;
-                color=shadow_color, markersize=0.12)
+                color=shadow_color, markersize=0.1 * shortest_bond)
             if annotate_sites
                 spts = [Point3f(sx[k], sy[k], sz[k]) for k in eachindex(sx)]
                 text!(ax, spts; text=shadow_labels,

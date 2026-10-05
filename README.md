@@ -176,6 +176,8 @@ More complete scripts, including Kitaev interactions on the hyperhoneycomb
 lattice, a Shastry-Sutherland cylinder, and plotting of spin configurations,
 are in the [`examples`](examples) directory and are walked through on the
 [Examples](https://awietek.github.io/Latlib.jl/examples/) page of the documentation.
+[`examples/lattices`](examples/lattices) contains a script for every predefined
+lattice that writes TOML files of several clusters, including their symmetries.
 
 ## Site ordering
 
