@@ -491,4 +491,36 @@ using LinearAlgebra
         ]"
         @test replace(interaction_str, r"\s+" => "") == replace(interaction_str_expected, r"\s+" => "")
     end
+
+    # ================================================================
+    # Further 2D and 3D lattices: dimension, atoms per unit cell,
+    # nearest-neighbor distance and number of nearest-neighbor bonds per unit cell
+    # ================================================================
+    @testset "further lattices" begin
+        cases = [
+            # (name, lattice, boundary, dim, natoms, nn distance, nn bonds per unit cell)
+            ("shastry_sutherland_non_symmorphic", shastry_sutherland_non_symmorphic,
+                                                   [3 0; 0 3],             2, 4, 1.0,        10),  # 1 dimer + 4 inter-dimer bonds per site
+            ("lieb",             lieb,             [4 0; 0 4],             2, 3, 0.5,        4),   # corners: 4 neighbors, edge centers: 2
+            ("trellis",          trellis,          [4 0; 0 4],             2, 2, 1.0,        5),   # 2 legs + 1 rung + 2 zigzag bonds per site
+            ("maple_leaf",       maple_leaf,       [3 0; 0 3],             2, 6, 1.0,        15),  # coordination 5
+            ("simple_cubic",     simple_cubic,     [3 0 0; 0 3 0; 0 0 3],  3, 1, 1.0,        3),   # coordination 6
+            ("bcc",              bcc,              [3 0 0; 0 3 0; 0 0 3],  3, 1, sqrt(3)/2,  4),   # coordination 8
+            ("fcc",              fcc,              [3 0 0; 0 3 0; 0 0 3],  3, 1, sqrt(2)/2,  6),   # coordination 12
+            ("simple_hexagonal", simple_hexagonal, [3 0 0; 0 3 0; 0 0 3],  3, 1, 1.0,        4),   # coordination 8
+            ("hcp",              hcp,              [3 0 0; 0 3 0; 0 0 3],  3, 2, 1.0,        12),  # coordination 12
+            ("diamond",          diamond,          [3 0 0; 0 3 0; 0 0 3],  3, 2, sqrt(3)/4,  4),   # coordination 4
+            ("pyrochlore",       pyrochlore,       [3 0 0; 0 3 0; 0 0 3],  3, 4, sqrt(2)/4,  12),  # coordination 6
+        ]
+        for (name, lattice, boundary, D, P, nn, bonds_per_cell) in cases
+            @testset "$name" begin
+                @test isa(lattice, Lattice)
+                @test dim(lattice) == D
+                @test natoms(lattice) == P
+                fl = FiniteLattice(lattice, boundary, true)
+                @test isapprox(distances(atoms(fl); flattice=fl)[2], nn)
+                @test length(neighbors(fl; num_distance=1)) == bonds_per_cell * length(bravais_cells(fl))
+            end
+        end
+    end
 end

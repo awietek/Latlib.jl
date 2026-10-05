@@ -64,7 +64,18 @@ The following lattices are available as constants:
 | [`honeycomb`](@ref) | 2 | 2 |
 | [`kagome`](@ref) | 2 | 3 |
 | [`shastry_sutherland`](@ref) | 2 | 4 |
+| [`shastry_sutherland_non_symmorphic`](@ref) | 2 | 4 |
+| [`lieb`](@ref) | 2 | 3 |
+| [`trellis`](@ref) | 2 | 2 |
+| [`maple_leaf`](@ref) | 2 | 6 |
 | [`hyperhoneycomb`](@ref) | 3 | 4 |
+| [`simple_cubic`](@ref) | 3 | 1 |
+| [`bcc`](@ref) | 3 | 1 |
+| [`fcc`](@ref) | 3 | 1 |
+| [`diamond`](@ref) | 3 | 2 |
+| [`pyrochlore`](@ref) | 3 | 4 |
+| [`simple_hexagonal`](@ref) | 3 | 1 |
+| [`hcp`](@ref) | 3 | 2 |
 
 ```@example predefined
 using Latlib
@@ -77,5 +88,16 @@ triangular
 honeycomb
 kagome
 shastry_sutherland
+shastry_sutherland_non_symmorphic
+lieb
+trellis
+maple_leaf
 hyperhoneycomb
+simple_cubic
+bcc
+fcc
+diamond
+pyrochlore
+simple_hexagonal
+hcp
 ```

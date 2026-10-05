@@ -24,6 +24,14 @@ using LinearAlgebra
     @testset "predefined_lattices.jl" begin
         include("test_predefined_lattices.jl")
     end
-    
+
+    @testset "spacegroup.jl" begin
+        include("test_spacegroup.jl")
+    end
+
+    @testset "irreps.jl" begin
+        include("test_irreps.jl")
+    end
+
 
 end

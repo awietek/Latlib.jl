@@ -43,6 +43,34 @@ export FiniteLattice,
         atoms
 
 
+include("symmetry/spacegroup.jl")
+export SymmetryOperation,
+        SpaceGroup,
+        FiniteSpaceGroup,
+        spacegroup,
+        operations,
+        site_permutations,
+        trivial_operations,
+        distinct_operations,
+        issymmorphic,
+        pointgroup_operations,
+        cartesian_rotation
+
+include("symmetry/pointgroups.jl")
+include("symmetry/pointgroups3d.jl")
+include("symmetry/kpoint_tables.jl")
+include("symmetry/kpoints.jl")
+include("symmetry/irreps.jl")
+include("symmetry/dimensions.jl")
+export ClusterSymmetries,
+        symmetries,
+        ClusterMomentum,
+        momenta,
+        Irrep,
+        irreps,
+        sector_dimension
+
+
 include("metric.jl")
 export EuclideanMetric,
         PeriodicEuclideanMetric,
@@ -67,7 +95,18 @@ export square,
         honeycomb,
         kagome,
         shastry_sutherland,
-        hyperhoneycomb
+        shastry_sutherland_non_symmorphic,
+        lieb,
+        trellis,
+        maple_leaf,
+        hyperhoneycomb,
+        simple_cubic,
+        bcc,
+        fcc,
+        simple_hexagonal,
+        hcp,
+        diamond,
+        pyrochlore
 
 
 include("plots.jl")
@@ -80,6 +119,8 @@ include("write.jl")
 export write_toml,
         toml_coordinates,
         toml_interactions,
+        toml_symmetries,
+        toml_irreps,
         toml_lattice,
         toml_metadata
 

@@ -30,6 +30,43 @@ Interactions = [
 Site indices are 1-based by default; pass `zero_based=true` for 0-based
 indices.
 
+With `symmetries=true`, a `Symmetries` section with the site permutations of the
+symmetry operations of the cluster is appended (see [Symmetries](symmetries.md)). For
+symmorphic space groups, the irreducible representations follow, unless `irreps=false`. For
+non-symmorphic space groups, only the symmetry operations are written, with a warning that
+irreducible representations are not implemented for them yet.
+
+```julia
+fl = FiniteLattice(maple_leaf, [1 1; 1 -2], true)
+H = neighbor_interaction("SdotS", "J", fl)
+write_toml(fl, H, "maple_leaf-N-18.toml"; zero_based=true, symmetries=true)
+```
+
+```toml
+# Symmetry center: (3/7, 5/7) in the lattice basis, (2.456769, 0.981981) Cartesian, no site
+# Symmetry group of the cluster: p6 (#16), point group 6 (C6), 18 operations
+# Symmetry group of the infinite lattice: p6 (#16), point group 6 (C6)
+# Momenta (Cartesian, first Brillouin zone; representatives of the stars marked with *):
+#   Gamma    C6    (0.0000000000, 0.0000000000) *
+#   K        C3    (1.5832138823, 0.0000000000) *
+#   K        C3    (0.7916069411, 1.3711034417)
+Symmetries = [
+  [0, 1, 2, ...],
+  [1, 2, 0, ...],
+  ...
+]
+
+# Irreducible representations
+[Gamma.C6.A]
+characters = [
+  [1.0000000000000000, 0.0000000000000000],
+  ...
+]
+allowed_symmetries = [0, 1, 2, ...]
+momentum = [0.0000000000000000, 0.0000000000000000]
+...
+```
+
 ```@docs
 write_toml
 read_toml_interaction
@@ -44,4 +81,6 @@ toml_metadata
 toml_lattice
 toml_coordinates
 toml_interactions
+toml_symmetries
+toml_irreps
 ```
