@@ -523,4 +523,19 @@ using LinearAlgebra
             end
         end
     end
+
+    @testset "tables of predefined lattices (README, docs)" begin
+        # rows "| `name` | dimension | (atoms |) group (#number)[¹] | yes/no |" of both tables
+        for file in (joinpath(@__DIR__, "..", "README.md"), joinpath(@__DIR__, "..", "docs", "src", "lattice.md"))
+            rows = [m for m in eachmatch(r"^\| \[?`(\w+)`(?:\]\(@ref\))? \| (\d) \|(?: (\d) \|)? (\S+) \(#(\d+)\)¹? \| (yes|no) \|$"m, read(file, String))]
+            @test Set(m[1] for m in rows) == Set(string(n) for n in names(Latlib) if getfield(Latlib, n) isa Lattice)
+            for m in rows
+                lattice = getfield(Latlib, Symbol(m[1]))
+                sg = spacegroup(lattice)
+                @test Latlib.dim(lattice) == parse(Int, m[2])
+                isnothing(m[3]) || @test Latlib.natoms(lattice) == parse(Int, m[3])
+                @test (sg.symbol, sg.number, sg.symmorphic) == (m[4], parse(Int, m[5]), m[6] == "yes")
+            end
+        end
+    end
 end

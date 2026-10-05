@@ -8,6 +8,9 @@ Bravais lattice with a basis of atoms, it
 - generates finite clusters with periodic or open boundaries,
 - finds neighbors under the periodic metric of the cluster,
 - assembles interaction terms into an operator sum,
+- determines the symmetry group of a cluster and the irreducible representations of its space
+  group (momenta, little groups, characters) for symmetry-resolved exact diagonalization, see
+  [Symmetries](symmetries.md),
 - plots clusters, bonds, and spin configurations,
 - and writes site coordinates and interactions to a TOML file that can be
   consumed by exact diagonalization or other many-body codes such as
