@@ -35,7 +35,9 @@ exact diagonalization or other many-body codes such as
   irreducible representations of the space group of a periodic cluster, labelled
   in the conventions of the Bilbao Crystallographic Server (`symmetries`, `irreps`),
   for symmorphic space groups in 2D and 3D, written to TOML files for exact
-  diagonalization codes like [XDiag](https://github.com/awietek/xdiag).
+  diagonalization codes like [XDiag](https://github.com/awietek/xdiag). The
+  dimensions of the sectors in the spin-1/2 Hilbert space are computed exactly
+  (`sector_dimension`) and checked to add up to the full Hilbert space.
 - **Interactions**: build an `OpSum` of two-body operators from nearest
   neighbor rules (`neighbor_interaction`) or from explicit bonds between atoms
   in the unit cell (`lattice_interaction`), e.g. for Kitaev-type models.

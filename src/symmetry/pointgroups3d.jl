@@ -91,6 +91,7 @@ struct _NamingContext3D
     principal::Vector{Float64}               # principal direction of the lattice: c (b for monoclinic lattices)
     secondary::Vector{Vector{Float64}}       # secondary directions: a, b, c (and a + b for hexagonal lattices)
     hexagonal::Bool                          # hexagonal or trigonal lattice
+    cubic::Bool                              # cubic lattice: the principal direction is not distinguished
     k::Union{Nothing, Vector{Float64}}       # momentum (Cartesian, first Brillouin zone); nothing at Γ
 end
 
@@ -104,6 +105,19 @@ function _orient(u::AbstractVector, ctx::_NamingContext3D) :: Vector{Float64}
 end
 
 _along_secondary(v::AbstractVector, ctx::_NamingContext3D) = any(s -> _parallel3(v, s), ctx.secondary)
+
+# Deterministic choice among elements whose axes (or mirror normals) are not distinguished by
+# the rules: the one whose axis, in the conventional basis and with its first nonzero component
+# positive, is lexicographically largest. Does not depend on the order of the elements.
+function _lexicographic(Rs, list::Vector{Int}, ctx::_NamingContext3D) :: Int
+    function key(i)
+        x = ctx.conventional \ _rotation_axis(Rs[i])
+        x = round.(x / maximum(abs, x); digits=8)
+        j = findfirst(v -> v != 0, x)
+        return x[j] < 0 ? -x : x
+    end
+    return list[argmax([Tuple(key(i)) for i in list])]
+end
 
 # Orientation data of a point group, needed for the Mulliken names
 struct _Orientation
@@ -128,11 +142,48 @@ function _generator(Rs, u, n, proper::Bool)
                              abs(rem2pi(_rotation_angle(R, u) - 2π / n, RoundNearest)) < 1e-8)
 end
 
-# element of `list` whose rotation axis (or mirror normal) is along a secondary direction, else the first one
+# element of `list` whose rotation axis (or mirror normal) is along the first possible secondary
+# direction (in the order of `ctx.secondary`), else the lexicographic choice
 function _pick_secondary(Rs, list::Vector{Int}, ctx::_NamingContext3D) :: Int
     isempty(list) && return 0
-    j = findfirst(i -> _along_secondary(_rotation_axis(Rs[i]), ctx), list)
-    return isnothing(j) ? list[1] : list[j]
+    for sdir in ctx.secondary
+        j = findfirst(i -> _parallel3(_rotation_axis(Rs[i]), sdir), list)
+        isnothing(j) || return list[j]
+    end
+    return _lexicographic(Rs, list, ctx)
+end
+
+# C2v: the mirror σ(xz) under which B1 is even, from the two mirrors `mvs` containing the
+# twofold axis u. The choice only depends on k, u and the lattice, so that it is the same for
+# all momenta of a star (related by symmetries of the cluster).
+function _c2v_mirror(Rs, mvs::Vector{Int}, u::Vector{Float64}, ctx::_NamingContext3D) :: Int
+    normal(i) = _rotation_axis(Rs[i])
+    # k ≠ Γ not along the twofold axis: the mirror containing k
+    if !isnothing(ctx.k) && !_parallel3(ctx.k, u)
+        containing = [i for i in mvs if abs(dot(normal(i), ctx.k)) < 1e-8 * norm(ctx.k)]
+        length(containing) == 1 && return containing[1]
+    end
+    if !ctx.cubic && _parallel3(u, ctx.principal)
+        # twofold axis along the principal direction: for hexagonal lattices the mirror whose normal
+        # is a secondary direction (as in 6mm), else the mirror containing a (x along a, as m_y in mm2)
+        ctx.hexagonal && return _pick_secondary(Rs, mvs, ctx)
+    elseif !ctx.cubic
+        # twofold axis perpendicular to the principal direction (k along u, or Γ): the mirror
+        # perpendicular to the principal direction
+        j = findfirst(i -> _parallel3(normal(i), ctx.principal), mvs)
+        isnothing(j) || return mvs[j]
+    else
+        # cubic lattices: the mirror whose normal is a cubic axis, if only one is
+        along = [i for i in mvs if _along_secondary(normal(i), ctx)]
+        length(along) == 1 && return along[1]
+    end
+    # the mirror containing the first secondary direction perpendicular to u (x along it)
+    for sdir in ctx.secondary
+        _parallel3(sdir, u) && continue
+        j = findfirst(i -> abs(dot(normal(i), sdir)) < 1e-8 * norm(sdir), mvs)
+        isnothing(j) || return mvs[j]
+    end
+    return _lexicographic(Rs, mvs, ctx)
 end
 
 function _orientation(gname::String, Rs::Vector{<:AbstractMatrix}, ctx::_NamingContext3D) :: _Orientation
@@ -150,19 +201,26 @@ function _orientation(gname::String, Rs::Vector{<:AbstractMatrix}, ctx::_NamingC
     elseif gname in ("D2", "D2h")
         twofold = of_type("2")
         dirs = [_rotation_axis(Rs[i]) for i in twofold]
-        # z: along the principal direction of the lattice, else along c, b, a, else the first one
+        # z: along the principal direction of the lattice, else along c, b, a, else the lexicographic choice
         z = nothing
         for ref in (ctx.principal, ctx.conventional[:, 3], ctx.conventional[:, 2], ctx.conventional[:, 1])
             z = findfirst(v -> _parallel3(v, ref), dirs)
             isnothing(z) || break
         end
-        isnothing(z) && (z = 1)
+        isnothing(z) && (z = findfirst(==(_lexicographic(Rs, twofold, ctx)), twofold))
         rest = [j for j in 1:3 if j != z]
-        # x: along k (k ≠ Γ), else along a secondary direction (in the order a, b, c), else the first one
+        # x: in the plane of k and z (k ≠ Γ), i.e. along k or perpendicular to the axis y that is
+        # perpendicular to k; else along a secondary direction (in the order a, b, c), else the
+        # lexicographic choice
         x = nothing
         if !isnothing(ctx.k)
             along_k = [j for j in rest if _parallel3(dirs[j], ctx.k)]
-            length(along_k) == 1 && (x = along_k[1])
+            perpendicular_k = [j for j in rest if abs(dot(dirs[j], ctx.k)) < 1e-8 * norm(ctx.k)]
+            if length(along_k) == 1
+                x = along_k[1]
+            elseif length(perpendicular_k) == 1
+                x = only(j for j in rest if j != perpendicular_k[1])
+            end
         end
         if isnothing(x)
             for sdir in ctx.secondary
@@ -170,7 +228,7 @@ function _orientation(gname::String, Rs::Vector{<:AbstractMatrix}, ctx::_NamingC
                 isnothing(j) || (x = rest[j]; break)
             end
         end
-        isnothing(x) && (x = rest[1])
+        isnothing(x) && (x = findfirst(==(_lexicographic(Rs, twofold[rest], ctx)), twofold))
         y = only(j for j in rest if j != x)
         axes = [twofold[z], twofold[y], twofold[x]]
         u = _orient(dirs[z], ctx)
@@ -200,24 +258,7 @@ function _orientation(gname::String, Rs::Vector{<:AbstractMatrix}, ctx::_NamingC
             isnothing(j) || (c2p = c2s[j])
         end
         if gname == "C2v"
-            # B1 is even under σ(xz): the mirror containing k (k ≠ Γ, not along the twofold axis); else,
-            # for hexagonal lattices, the mirror whose normal is a secondary direction (as in 6mm);
-            # else the mirror containing a secondary direction (x along a, as m_y in the standard mm2)
-            if !isnothing(ctx.k) && !_parallel3(ctx.k, u)
-                containing = [i for i in mvs if abs(dot(_rotation_axis(Rs[i]), ctx.k)) < 1e-8 * norm(ctx.k)]
-                length(containing) == 1 && (sigma_v = containing[1])
-            end
-            if sigma_v == 0 && ctx.hexagonal
-                sigma_v = _pick_secondary(Rs, mvs, ctx)
-            end
-            if sigma_v == 0
-                for sdir in ctx.secondary
-                    _parallel3(sdir, u) && continue
-                    j = findfirst(i -> abs(dot(_rotation_axis(Rs[i]), sdir)) < 1e-8 * norm(sdir), mvs)
-                    isnothing(j) || (sigma_v = mvs[j]; break)
-                end
-            end
-            sigma_v == 0 && (sigma_v = mvs[1])
+            sigma_v = _c2v_mirror(Rs, mvs, u, ctx)
         else
             sigma_v = _pick_secondary(Rs, mvs, ctx)
         end

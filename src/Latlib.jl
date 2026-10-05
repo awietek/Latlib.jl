@@ -61,12 +61,14 @@ include("symmetry/pointgroups3d.jl")
 include("symmetry/kpoint_tables.jl")
 include("symmetry/kpoints.jl")
 include("symmetry/irreps.jl")
+include("symmetry/dimensions.jl")
 export ClusterSymmetries,
         symmetries,
         ClusterMomentum,
         momenta,
         Irrep,
-        irreps
+        irreps,
+        sector_dimension
 
 
 include("metric.jl")

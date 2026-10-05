@@ -116,6 +116,18 @@ the infinite lattice but not of the cluster belong to different stars. A sector 
 - **Three-dimensional irreps** (`T` irreps of the cubic little co-groups) cannot be written as
   one-dimensional characters. They are skipped with a warning; TOML files get a prominent banner.
 
+The axes that the Mulliken names refer to are chosen from the momentum and the lattice only, so
+that every momentum of a star gets the same names (carried over by the symmetries of the cluster).
+Where the little co-group alone does not fix them:
+
+- `C2v` (`B1` even under ``\sigma(xz)``): the mirror containing ``\mathbf{k}``. If the twofold axis is
+  along ``\mathbf{k}``, the mirror perpendicular to the principal axis of the lattice (for cubic
+  lattices: the mirror whose normal is a cubic axis). For a twofold axis along the principal axis,
+  the mirror whose normal is a lattice vector (hexagonal lattices) or the mirror containing ``\mathbf{a}``.
+- `D2`, `D2h` (`B1`, `B2`, `B3` even under the twofold rotations about ``z``, ``y``, ``x``): ``z``
+  along the principal axis of the lattice, ``x`` along ``\mathbf{k}`` or in the plane of
+  ``\mathbf{k}`` and ``z``.
+
 The character of an operation ``\mathcal{X} \mapsto W(\mathcal{X} - \mathbf{c}) + \mathbf{c} + \mathbf{t}``,
 written relative to the symmetry center ``\mathbf{c}``, is ``\rho(W)\, e^{+i\mathbf{k}\cdot\mathbf{t}}``.
 
@@ -139,6 +151,27 @@ Three-dimensional lattices work the same way:
 cs = symmetries(FiniteLattice(bcc, 2 * [0 1 1; 1 0 1; 1 1 0], true))   # 16 sites
 [(k.label, k.littlegroup_name) for k in momenta(cs) if k.representative]
 ```
+
+## Dimensions of the sectors
+
+[`sector_dimension`](@ref) gives the dimension of a sector in the Hilbert space of spin-1/2, i.e. the
+size of the block an exact diagonalization code works with, optionally for a fixed number of up
+spins and a parity under the global spin flip. It is computed exactly from the cycles of the site
+permutations, without enumerating any states, and takes milliseconds also for large clusters. For
+example, the ground-state sector of the Heisenberg model on the ``6 \times 6`` square lattice:
+
+```@example symmetries
+cs = symmetries(FiniteLattice(square, [6 0; 0 6], true); origin=LatticeVector(square, [0.0, 0.0]))
+A1 = only(irrep for irrep in irreps(cs) if irrep.label == "Gamma.C4v.A1")
+sector_dimension(cs, A1; nup=18, spinflip=1)
+```
+
+Whenever the irreps are computed, also by [`write_toml`](@ref), the sectors are checked against
+the spin-1/2 Hilbert space. The dimension of every sector has to be an integer, which fails for
+characters that do not form a representation. At every momentum, the sectors have to span the
+subspace of this momentum, apart from skipped three-dimensional irreps, so that all sectors
+together, weighted with the sizes of the stars, span the ``2^N`` states. A failing check raises an
+error.
 
 ## Writing symmetries to TOML files
 
@@ -165,6 +198,7 @@ momenta
 ClusterMomentum
 irreps
 Irrep
+sector_dimension
 spacegroup
 SpaceGroup
 FiniteSpaceGroup

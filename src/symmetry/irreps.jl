@@ -239,22 +239,30 @@ function _kpoint_sortkey(label::String)
     return (label == "Gamma" ? 0 : base == "GP" ? 2 : 1, base, number)
 end
 
+# context to name the irreps of the little co-group of k (holo: holohedry of the lattice)
+function _naming_context(lattice::Lattice, holo, k::ClusterMomentum)
+    kvec = k.label == "Gamma" ? nothing : k.momentum
+    if dim(lattice) == 2
+        return _NamingContext(holo.type, holo.conventional, holo.shortest, kvec)
+    end
+    return _NamingContext3D(holo.conventional, holo.principal, holo.secondary, holo.hexagonal, holo.number in (221, 225, 229), kvec)
+end
+
 # All sectors of the representatives of the stars, with a status:
 #  :ok         the sector is written,
 #  :vanishing  the sector vanishes on the cluster, because it is not trivial on operations
 #              acting trivially on the sites,
 #  :skipped    a three-dimensional irrep of the little co-group (no characters).
+# The sectors are checked against the dimensions of the spin-1/2 Hilbert space, see `_check_sectors`.
 function _sectors(cs::ClusterSymmetries)
     lattice = cs.spacegroup.flattice.lattice
     holo = dim(lattice) == 2 ? _holohedry(lattice) : _holohedry3d(lattice)
     ops = operations(cs.spacegroup)
     result = Tuple{Irrep, Symbol}[]
-    for k in momenta(cs)
+    ks = momenta(cs)
+    for k in ks
         k.representative || continue
-        kvec = k.label == "Gamma" ? nothing : k.momentum
-        ctx = dim(lattice) == 2 ? _NamingContext(holo.type, holo.conventional, holo.shortest, kvec) :
-                                  _NamingContext3D(holo.conventional, holo.principal, holo.secondary, holo.hexagonal, kvec)
-        gname, Ws, sectors, skipped = _pointgroup_sectors(k.littlegroup, lattice, ctx)
+        gname, Ws, sectors, skipped = _pointgroup_sectors(k.littlegroup, lattice, _naming_context(lattice, holo, k))
         for s in sectors
             exponent = Dict(Ws[s.elements[j]] => s.exponents[j] for j in eachindex(s.elements))
             characters = Dict{Int, ComplexF64}()
@@ -282,7 +290,9 @@ function _sectors(cs::ClusterSymmetries)
             push!(result, (irrep, :skipped))
         end
     end
-    return sort(result; by=r -> (_kpoint_sortkey(r[1].kpoint), r[1].name))
+    sort!(result; by=r -> (_kpoint_sortkey(r[1].kpoint), r[1].name))
+    _check_sectors(cs, ks, result)
+    return result
 end
 
 _skipped_labels(sectors) = [irrep.label for (irrep, status) in sectors if status == :skipped]
