@@ -2,7 +2,9 @@
 
 One directory per predefined lattice of Latlib. Each script builds a few periodic clusters, defines
 a Hamiltonian, checks that every cluster is large enough for its couplings, and writes one TOML
-file per cluster and model (`<lattice>-<model>-N-<sites>-ver-<version>.toml`, at most 1 MB each).
+file per cluster and model (`<lattice>-<model>-N-<sites>-ver-<version>.toml`, at most 1 MB each)
+into its directory. The TOML files are not part of the repository (see `.gitignore`); run the
+scripts to generate them.
 Run the scripts from the root of the repository, e.g.
 
 ```
